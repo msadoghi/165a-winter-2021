@@ -118,9 +118,7 @@ class Page_range:
         # Array of Base_pages based on Const.BASE_PAGE_COUNT
         self.pages = [Base_page(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
 
-
 class Table:
-
     """
     :param name: string             Name of the Table
     :param num_columns: int         Number of data columns in the table
@@ -151,15 +149,14 @@ class Table:
         pass
     
 
-    def new_rid(self) -> None:
+    def new_rid(self, key) -> None:
         '''
         Function that creates a new RID, increments the amount of records in the table,
         then creates a blank RID dict that is  mapped in the Table page_directory.
         '''
-
         rid = self.num_records + 1
         self.num_records += 1
-        self.page_directory[rid] = _new_rid_dict()
+        self.page_directory[key] = _new_rid_dict()
     
 
     def _new_rid_dict(self) -> dict:
@@ -175,7 +172,8 @@ class Table:
 
         '''
 
-        rid = {
+        record_info = {
+            'rid': None,
             'page_range': None,
             'base_page': None,
             'base_index': None,
