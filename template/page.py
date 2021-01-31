@@ -16,8 +16,12 @@ class Page:
         #     self.num_records += 1
         self.data[row] = value
         # assuming value is an integer
-        self.data[row * PAGE_RECORD_SIZE:(row * PAGE_RECORD_SIZE + PAGE_RECORD_SIZE - 1)] = value.to_bytes(8, 'big')
+        starting_point = row * PAGE_RECORD_SIZE
+        self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = value.to_bytes(8, 'big')
         pass
+
+    def read(self, row):
+        return self.data[row * PAGE_RECORD_SIZE:(row * PAGE_RECORD_SIZE + PAGE_RECORD_SIZE - 1)]
 
 #     def insert_new_record(self,value):
 #         # assuming value is an integer
