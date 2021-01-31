@@ -1,4 +1,5 @@
 from template.table import *
+from random import randint
 
 def makeTable():
     '''
@@ -19,4 +20,18 @@ def makeTable():
                 # print(f'{column} : {column.data}\n')
                 print(f'            {column}\n')
 
-makeTable()
+# makeTable()
+
+def testInsert():
+    records = {}
+    for i in range(0, 1000):
+        key = 92106429 + randint(0, 9000)
+        while key in records:
+            key = 92106429 + randint(0, 9000)
+        records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
+        # query.insert(*records[key])
+        # print('inserted', records[key])
+    print(records)
+
+#testInsert()
+testInsert()

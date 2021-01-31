@@ -12,6 +12,7 @@ class Query:
 
     def __init__(self, table):
         self.table = table
+        # check that table exists in Database
         pass
 
     """
@@ -21,6 +22,13 @@ class Query:
     # Return False if record doesn't exist or is locked due to 2PL
     """
     def delete(self, key):
+        # key is the unique identifier that is user facing and should map to an internal rid
+        # 1. Find the record in our page_directory - make sure record exists
+        # 2. Update delete value to true
+        # 3. Change schema encoding to all zeros
+        # 4. Update indirection pointer to point to one update prior to the most current update 
+        # We need to make sure that deleting doesn't mess with the other rids
+        # Return true if successfully found record and completed steps 1-4
         pass
 
     """
@@ -30,17 +38,32 @@ class Query:
     """
     def insert(self, *columns):
         schema_encoding = '0' * self.table.num_columns
+        # 0. Check if space is avalable in our current page range, if not add a new page range
+        # 1. Create a new rid and figure out where this will be stored
+        # 2. Insert the values into each physical page
+        # 3. This should be the first instance of this record so the schema encoding will be all zeroes
+        # 4. return true if successfully inserts
+        # TODO : Create a record class with an rid, timestamp, and primary key data member
+        # TODO : Create a funcion that checks if our page range has space
         pass
 
     """
     # Read a record with specified key
     # :param key: the key value to select records based on
+    # :column: the index where key is stored in our table
     # :param query_columns: what columns to return. array of 1 or 0 values.
     # Returns a list of Record objects upon success
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, key, column, query_columns):
+        # 1. Go to specifed column and find the value that matches key
+        # 2. Check the query_columns list for the indexes set to 1
+        # 3. Check the schema encoding to see if we need to get the value from the base page or from the tail page
+        # 4. Aggregate all the values by the specifed query_columns list and return
+        # In milestone 1, this only returns a list with a single record
+        # EX: select(9898798, 0, [0, 1, 0, 1]) -> return [[89, 76]] 89 and 76 are from column 1 and 3 respectively 
+        # and 9898798 is the unique identifier (key) for that record
         pass
 
     """
@@ -49,6 +72,20 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
+        # take a snapshot?
+        # all updates will go to the tail page
+        # 1. Check that key exists in page directory else return false
+        # 2. Create a new record, with a new rid
+        # 3. We will be given a list [None, None, NewValue, ... None, None]
+        # 4. Update schema encoding at all columns with non None values to equal 1
+        # 5. New record will go into our tail page
+        # 6. Update the page_dictory with the rid of the MRU
+        # TODO : where do tail records go in our table?
+        # MRU = most recent update
+        # SMRU = second most recent update
+        # Cumulative updates are more intuitive - so if we have 2 updates, then MRU will also store the other updated columns
+        # 7. Update base page indirection pointer to point to the new MRU
+        # 8. Update tail page indirection pointer of MRU to the SMRU
         pass
 
     """
@@ -60,6 +97,9 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
+        # TODO : assign someone to implement the 3 index functions required for milestone 1
+        # Use index functions to sum all values specifed by aggrehate_column_index that fall between start_range and end_range
+        # Note that the MRU for the specified aggregate_column_index needs to be used in the sum, so make sure to check the schema encoding
         pass
 
     """
@@ -70,7 +110,7 @@ class Query:
     # Returns True is increment is successful
     # Returns False if no record matches key or if target record is locked by 2PL.
     """
-    def increment(self, key, column):
+    def increment(self, key, column): # not tested in milestone 1
         r = self.select(key, self.table.key, [1] * self.table.num_columns)[0]
         if r is not False:
             updated_columns = [None] * self.table.num_columns
