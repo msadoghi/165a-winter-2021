@@ -1,4 +1,4 @@
-from template.table import *
+from lstore.table import *
 from random import randint
 
 def makeTable():

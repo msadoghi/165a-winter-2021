@@ -1,8 +1,6 @@
-from template.table import Table
-from template.index import Index
-from template.record import Record
-
-# I think the record class shouldn't be in this file
+from lstore.table import Table
+from lstore.index import Index
+from lstore.record import Record
 
 class Query:
     """
@@ -14,10 +12,6 @@ class Query:
 
     def __init__(self, table):
         self.table = table
-        # check that table exists in Database
-
-        # Maybe we can store variables here with the status of the table in terms of available space in page range, next avilable rid, etc
-
         pass
 
     """
@@ -28,7 +22,6 @@ class Query:
     """
     def delete(self, key):
         # key is the unique identifier that is user facing and should map to an internal rid
-
         # delete only flags for deletion, does not actually delete record 
         # Are flagging to delete the whole record, or just 1 rollback, or maybe we will need to support both later on?
         # 1. Find the record in our page_directory - make sure record exists
@@ -52,12 +45,10 @@ class Query:
         # 1. Create a new rid and figure out where this will be stored
         # 2. Insert the values into each physical page
         # 3. This should be the first instance of this record so the schema encoding will be all zeroes
-        primary_key = column[0]
-        new_rid = self.table.new_rid(primary_key)
-        new_record = Record(primary_key, new_rid, schema_encoding, columns)
+        # new_rid = self.table.new_rid(primary_key)
+        # new_record = Record(primary_key, new_rid, schema_encoding, columns)
         # 4. return true if successfully inserts
         # TODO : Create a funcion that checks if our page range has space
-        # TODO : Discuss if insertion will be handled within the page class
         pass
 
     """
