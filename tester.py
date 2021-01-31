@@ -31,7 +31,7 @@ def testInsert():
         records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
         # query.insert(*records[key])
         # print('inserted', records[key])
-    print(records)
-
-#testInsert()
+    # print(records)
+    print(*records[key])
+    print(records[key])
 testInsert()

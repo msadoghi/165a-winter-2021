@@ -118,6 +118,7 @@ class Page_range:
         # Array of Base_pages based on Const.BASE_PAGE_COUNT
         self.pages = [Base_page(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
 
+        
 class Table:
     """
     :param name: string             Name of the Table
