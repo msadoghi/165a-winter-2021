@@ -1,6 +1,8 @@
-from template.table import Table, Record
+from template.table import Table
 from template.index import Index
+from template.record import Record
 
+# I think the record class shouldn't be in this file
 
 class Query:
     """
@@ -13,6 +15,7 @@ class Query:
     def __init__(self, table):
         self.table = table
         # check that table exists in Database
+        # Maybe we can store variables here with the status of the table in terms of available space in page range, next avilable rid, etc
         pass
 
     """
@@ -23,12 +26,15 @@ class Query:
     """
     def delete(self, key):
         # key is the unique identifier that is user facing and should map to an internal rid
+        # delete only flags for deletion, does not actually delete record 
+        # Are flagging to delete the whole record, or just 1 rollback, or maybe we will need to support both later on?
         # 1. Find the record in our page_directory - make sure record exists
-        # 2. Update delete value to true
+        # 2. Update delete value to true in page directory
         # 3. Change schema encoding to all zeros
-        # 4. Update indirection pointer to point to one update prior to the most current update 
-        # We need to make sure that deleting doesn't mess with the other rids
-        # Return true if successfully found record and completed steps 1-4
+        # 4. Go to tail pages and create a new record with all null values in the intries and zeroes for the scheme encoding
+        # 5. Set indirection pointer of new tail record to point to SMRU
+        # 6. Set indirection pointer of base page record to point to new MRU
+        # Return true if successfully found record and completed steps 1-6
         pass
 
     """
@@ -42,9 +48,12 @@ class Query:
         # 1. Create a new rid and figure out where this will be stored
         # 2. Insert the values into each physical page
         # 3. This should be the first instance of this record so the schema encoding will be all zeroes
+        primary_key = column[0]
+        new_rid = self.table.new_rid(primary_key)
+        new_record = Record(primary_key, new_rid, schema_encoding, columns)
         # 4. return true if successfully inserts
-        # TODO : Create a record class with an rid, timestamp, and primary key data member
         # TODO : Create a funcion that checks if our page range has space
+        # TODO : Discuss if insertion will be handled within the page class
         pass
 
     """
@@ -72,7 +81,7 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        # take a snapshot?
+        # Check if column has ever been updated and create a snapshot if it has not
         # all updates will go to the tail page
         # 1. Check that key exists in page directory else return false
         # 2. Create a new record, with a new rid
