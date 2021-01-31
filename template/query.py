@@ -15,7 +15,9 @@ class Query:
     def __init__(self, table):
         self.table = table
         # check that table exists in Database
+
         # Maybe we can store variables here with the status of the table in terms of available space in page range, next avilable rid, etc
+
         pass
 
     """
@@ -26,6 +28,7 @@ class Query:
     """
     def delete(self, key):
         # key is the unique identifier that is user facing and should map to an internal rid
+
         # delete only flags for deletion, does not actually delete record 
         # Are flagging to delete the whole record, or just 1 rollback, or maybe we will need to support both later on?
         # 1. Find the record in our page_directory - make sure record exists
@@ -35,6 +38,7 @@ class Query:
         # 5. Set indirection pointer of new tail record to point to SMRU
         # 6. Set indirection pointer of base page record to point to new MRU
         # Return true if successfully found record and completed steps 1-6
+
         pass
 
     """

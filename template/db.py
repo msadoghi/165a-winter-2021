@@ -3,9 +3,11 @@ from template.table import Table
 class Database():
 
     def __init__(self):
-        self.tables = []
+        # store tables in a dictionary
+        self.tables = {}
         pass
 
+    # Not required for milestone1
     def open(self, path):
         pass
 
@@ -20,16 +22,18 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
+        self.tables[name] = table
         return table
 
     """
     # Deletes the specified table
     """
     def drop_table(self, name):
+        self.tables[name] = None
         pass
 
     """
     # Returns table with the passed name
     """
     def get_table(self, name):
-        pass
+        return self.tables[name]

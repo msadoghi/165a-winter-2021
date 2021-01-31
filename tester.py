@@ -34,5 +34,4 @@ def testInsert():
     # print(records)
     print(*records[key])
     print(records[key])
-
 testInsert()

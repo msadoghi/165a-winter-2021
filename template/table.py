@@ -3,6 +3,72 @@ from template.index import Index
 from template.config import *
 from time import time
 
+'''
+              *** Table Diagram ***
+
+    -----------------------------------------
+    |       Table: Holds Page_range(s)      |
+    |   ------   ------   ------   ------   |
+    |   | PR |   | PR |   | PR |   | PR |   |
+    |   ------   ------   ------   ---|--   |
+    |                  ...            |     |
+    ----------------------------------|------
+                                      |---------|  
+                                                |
+    -----------------------------------------   |
+    |     Page_range: Holds Base_page(s)    |   |
+    |   ------   ------   ------   ------   |<--|
+    |   | BP |   | BP |   | BP |   | BP |   |
+    |   ------   ------   ------   ------   |
+    |   ------   ------   ------   ------   |
+    |   | BP |   | BP |   | BP |   | BP |   |
+    |   ------   ------   ------   ------   |
+    |   ------   ------   ------   ------   |
+    |   | BP |   | BP |   | BP |   | BP |   |
+    |   ------   ------   ------   ------   |
+    |   ------   ------   ------   ------   |
+    |   | BP |   | BP |   | BP |   | BP |   |
+    |   ------   ------   ------   ---|---  |
+    |                  ...            |     |
+    ----------------------------------|------
+                                      |--------|         
+                                               |                                            
+    ----------------------------------------   |                                   
+    |       Base_page: Holds Page(s)       |<--|    
+    |   -----   -----   -----   -----      |    
+    |   | P |   | P |   | P |   | P |      |
+    |   |   |   |   |   |   |   |   |  ... |
+    |   |   |   |   |   |   |   |   |      |
+    |   -----   -----   --|--   -----   |  |                     Each Base_page has a
+    ----------------------|-------------|---                list of Tail_page(s) for updates
+                          |             |               ----------------------------------------
+                          |             |-------------->|       Tail_page: Holds Page(s)       |
+                          |                             |   -----   -----   -----   -----      | 
+                          |                             |   | P |   | P |   | P |   | P |      | 
+                          |                             |   |   |   |   |   |   |   |   |  ... |
+                          |                             |   |   |   |   |   |   |   |   |      |
+                          |                             |   -----   -----   -----   -----      |
+                          |                             ----------------------------------------
+                          |----------------------|
+                                                 |
+    -------------------------------------        |       
+    |   Page: Array of 8 Byte Integers  |        |
+    |     These are the data columns    |<-------|
+    |   -----------------------------   | 
+    | 0 |      8 - byte Integer     |   |
+    |   -----------------------------   | 
+    | 1 |      8 - byte Integer     |   |
+    |   -----------------------------   | 
+    | 2 |      8 - byte Integer     |   |
+    |   -----------------------------   | 
+    | 3 |      8 - byte Integer     |   |
+    |   -----------------------------   | 
+    | - |            ...            |   |
+    |   -----------------------------   | 
+    -------------------------------------   
+
+'''
+
 INDIRECTION_COLUMN = 0
 RID_COLUMN = 1
 TIMESTAMP_COLUMN = 2
@@ -14,32 +80,45 @@ class Base_page:
     :param tail_page_list: list      Stores a list of all Tail_Page objects associated with the Base_page
     :param columns_list: list        Stores a list of all Page objects for the Base_page, these are the data columns
     :param tail_page_count: int      An integer that holds the current amount of tail pages the Base_page has
+    :param pr_key: int               Holds the integer key of the parent Page Range
+    :param key: int                  Holds the integer key of itself as it maps to the Parent Page_range list
     '''
-    def __init__(self, num_columns: int):
+    def __init__(self, num_columns: int, parent_key: int, bp_key: int):
         # Create a starting Tail Page for updates
-        self.tail_page_list = [Tail_page(num_columns)]
+        self.tail_page_list = [Tail_page(num_columns=num_columns, parent_key=bp_key, key=0)]
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
         self.columns_list = [Page() for i in range(num_columns + 4)]
         self.tail_page_count = 1
+        self.pr_key = parent_key
+        self.key = bp_key
 
 
 class Tail_page:
     '''
     :param columns_list: list       Stores a list of all Page objects for the Tail_page, these are the data columns
+    :param bp_key: int              Holds the integer key of the parent Base_page
     '''
-    def __init__(self, num_columns: int):
+    def __init__(self, num_columns: int, parent_key: int, key: int):
+        self.bp_key = parent_key
+        self.key = key
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
         self.columns_list = [Page() for i in range(num_columns + 4)]
+
         
     
 class Page_range:
     '''
     :param pages: list      Stores a list of all Base_page objects in the Page_range
+    :param table_key: int   Holds the integer key of the parent Table
+    :param key: int         Holds the integer key of the Page_range as it is mapped in the parent Table list
     '''
-    def __init__(self, num_columns: int):
+    def __init__(self, num_columns: int, parent_key: int, pr_key:int):
+        self.table_key = parent_key
+        self.key = pr_key
         # Array of Base_pages based on Const.BASE_PAGE_COUNT
-        self.pages = [Base_page(num_columns) for i in range(BASE_PAGE_COUNT)]
+        self.pages = [Base_page(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
 
+        
 class Table:
     """
     :param name: string             Name of the Table
@@ -57,7 +136,7 @@ class Table:
         self.num_columns = num_columns
         self.page_directory = {}
         self.index = Index(self)
-        self.book = [Page_range(num_columns)] # Initialize with a single PageRange
+        self.book = [Page_range(num_columns=num_columns, parent_key=key, pr_key=0)] # Initialize with a single Page_range
         self.num_records = 0
         self.column_names = { 
             0: 'Indirection', 
@@ -99,8 +178,6 @@ class Table:
             'page_range': None,
             'base_page': None,
             'base_index': None,
-            'tail_page': None,
-            'tail_index': None,
             'delete': False,
             'updated': False
         }
