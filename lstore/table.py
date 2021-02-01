@@ -1,6 +1,6 @@
-from template.page import *
-from template.index import Index
-from template.config import *
+from lstore.page import *
+from lstore.index import Index
+from lstore.config import *
 from time import time
 
 '''
