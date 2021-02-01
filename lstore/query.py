@@ -22,17 +22,21 @@ class Query:
     # Return False if record doesn't exist or is locked due to 2PL
     """
     def delete(self, key):
-        # key is the unique identifier that is user facing and should map to an internal rid
-        # delete only flags for deletion, does not actually delete record 
-        # Are flagging to delete the whole record, or just 1 rollback, or maybe we will need to support both later on?
-        # 1. Find the record in our page_directory - make sure record exists
-        # 2. Update delete value to true in page directory
-        # 3. Change schema encoding to all zeros
+
+        rid = self.record_does_exist(key)
+        if rid == False:
+            return False
+        
+        # Update delete value to true in page directory
+        self.table.page_directory[rid]["deleted"] = True
+        schema_encoding = '0' * self.table.num_columns
+        record = self.table.read_record(key)
+        delete_record = Record(key, record.rid, schema_encoding, [None for i in range(self.table.num_columns)])
+        self.table.update_record(record=delete_record, rid=record.rid)
         # 4. Go to tail pages and create a new record with all null values in the intries and zeroes for the scheme encoding
         # 5. Set indirection pointer of new tail record to point to SMRU
         # 6. Set indirection pointer of base page record to point to new MRU
         # Return true if successfully found record and completed steps 1-6
-
         pass
 
     """
@@ -45,7 +49,8 @@ class Query:
         schema_encoding = '0' * self.table.num_columns
         new_rid = self.table.new_rid()
         unique_identifier = columns[0]
-        new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=schema_encoding, column_values=columns)
+        columns_list = list(columns)
+        new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=schema_encoding, column_values=columns_list)
         did_successfully_write = self.table.write_new_record(record=new_record, rid=new_rid)
 
         if did_successfully_write:
@@ -82,7 +87,7 @@ class Query:
             elif query_columns[i] == 0:
                 continue
             else:
-                raise ValueError(f'ERROR: query_columns list must contain 0 or 1 values. {e}')
+                raise ValueError('ERROR: query_columns list must contain 0 or 1 values.')
         
         return_list.append(filtered_record_list)
         return return_list
@@ -98,7 +103,7 @@ class Query:
         if self.table.record_does_exist(key) == False:
             return False
         
-        current_record = self.table.read_record(key)
+        current_record = self.table.read_record(key) # read record need to give the MRU
         updated_schema_encoding = copy.deepcopy(current_record.schema_encoding)
         updated_user_data = copy.deepcopy(current_record.user_data)
         

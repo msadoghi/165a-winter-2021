@@ -5,6 +5,6 @@ class Record:
         self.primary_key = key
         # indirection, rid, schema_encoding, timestamp
         timestamp = datetime.now()
-        self.meta_data = [None, None, rid, schema_encoding, timestamp]
+        self.meta_data = [0, rid, schema_encoding, timestamp]
         self.user_data = column_values
         self.all_columns = self.meta_data + self.user_data

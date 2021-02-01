@@ -3,21 +3,27 @@ from lstore.config import *
 class Page:
 
     def __init__(self):
-        # self.num_records = 0
-        # write 
+        self.num_records = 0
         self.data = bytearray(PAGE_SIZE)
 
     def has_capacity(self):
-        pass
+        current_empty_space = ENTRIES_PER_PAGE - self.num_records
+        if current_empty_space == 0:
+            return False
+        elif current_empty_space > 0:
+            return True
+        else:
+            raise ValueError('ERROR: current_empty_space must be greater or equal to zero.')
 
-# 
     def write(self, value, row):
         # if(row>self.num_records):
         #     self.num_records += 1
-        self.data[row] = value
+        # self.data[row] = value
         # assuming value is an integer
         starting_point = row * PAGE_RECORD_SIZE
+        # start index : end index
         self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = value.to_bytes(8, 'big')
+        self.num_records += 1
         pass
 
     def read(self, row):
