@@ -22,7 +22,7 @@ class Database():
     """
     def create_table(self, name, num_columns, key):
         table = Table(name, num_columns, key)
-        self.tables[name] = table
+        self.tables[name] = table # TODO: check if name is best way to map
         return table
 
     """
