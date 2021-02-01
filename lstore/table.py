@@ -356,7 +356,7 @@ class Table:
 
 
 
-    def write_record(self, record: Record, rid: int) -> bool:
+    def update_record(self, record: Record, rid: int) -> bool:
         '''
         This function takes a Record and a RID and finds the appropriate place to write the record and writes it
         '''
@@ -372,8 +372,6 @@ class Table:
         tp_index = write_info.get('update_page_index')
         mru_tp = write_info.get('mru_page')
         mru_tp_index = write_info.get('mru_page_index')
-
-
 
         # Make Indirection columns of Record point to MRU
         record.all_columns[INDIRECTION_PAGE] = mru_tp
@@ -401,5 +399,12 @@ class Table:
         return True
 
 
-    def read_record(self) -> bool:
-        pass
+    def read_record(self, key):
+        record = Record(key, 0, "00000", [1, 2, 3, 4, 5, 6])
+        return record
+
+    def record_does_exist(self, key) -> bool:
+        return True
+
+    def new_tid(key) -> int:
+        return 1

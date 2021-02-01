@@ -1,6 +1,7 @@
 from lstore.table import Table
 from lstore.index import Index
 from lstore.record import Record
+from copy import deepcopy
 
 class Query:
     """
@@ -40,16 +41,18 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+
         schema_encoding = '0' * self.table.num_columns
-        # 0. Check if space is avalable in our current page range, if not add a new page range
-        # 1. Create a new rid and figure out where this will be stored
-        # 2. Insert the values into each physical page
-        # 3. This should be the first instance of this record so the schema encoding will be all zeroes
-        # new_rid = self.table.new_rid(primary_key)
-        # new_record = Record(primary_key, new_rid, schema_encoding, columns)
-        # 4. return true if successfully inserts
-        # TODO : Create a funcion that checks if our page range has space
-        pass
+        new_rid = self.table.new_rid()
+        unique_identifier = columns[0]
+        new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=schema_encoding, column_values=columns)
+        did_successfully_write = self.table.write_new_record(record=new_record, rid=new_rid)
+
+        if did_successfully_write:
+            return True
+        else:
+            # In the future : if a commit fails, we can try a second time
+            return False
 
     """
     # Read a record with specified key
@@ -59,16 +62,30 @@ class Query:
     # Returns a list of Record objects upon success
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
+    # Tests: query_tests.py
     """
     def select(self, key, column, query_columns):
-        # 1. Go to specifed column and find the value that matches key
-        # 2. Check the query_columns list for the indexes set to 1
-        # 3. Check the schema encoding to see if we need to get the value from the base page or from the tail page
-        # 4. Aggregate all the values by the specifed query_columns list and return
-        # In milestone 1, this only returns a list with a single record
-        # EX: select(9898798, 0, [0, 1, 0, 1]) -> return [[89, 76]] 89 and 76 are from column 1 and 3 respectively 
-        # and 9898798 is the unique identifier (key) for that record
-        pass
+        # TODO record_does_exist(key) -> return rid if true and return false
+        # TODO  # read_record(key) -> returns a record if successful, else returns false
+                # Check the schema encoding to see if we need to get the value from the base page or from the tail page
+                # When you return a record, we need the MRU, not the value in the base page if an update exists for a column
+        selected_record = self.table.read_record(key)
+
+        if selected_record == False:
+            return False
+
+        return_list = []
+        filtered_record_list = []
+        for i in range(len(query_columns)):
+            if query_columns[i] == 1:
+                filtered_record_list.append(selected_record.user_data[i])
+            elif query_columns[i] == 0:
+                continue
+            else:
+                raise ValueError(f'ERROR: query_columns list must contain 0 or 1 values. {e}')
+        
+        return_list.append(filtered_record_list)
+        return return_list
 
     """
     # Update a record with specified key and columns
@@ -76,16 +93,31 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, key, *columns):
-        # Check if column has ever been updated and create a snapshot if it has not
+        # TODO : Discuss snapshots for future milestones
         # all updates will go to the tail page
-        # 1. Check that key exists in column 0 else return false
-        # 2. Create a new tail record, with a new tid
-        # 3. We will be given a list [None, None, NewValue, ... None, NewValue]
-        # 4. Update schema encoding at all columns with non None values to equal 1
-        # 5. Find the MRU and make a copy
-        # 6. Update base page indirection pointer to point to the new MRU
-        # 7. Update tail page indirection pointer of MRU to the SMRU
-        pass
+        if self.table.record_does_exist(key) == False:
+            return False
+        
+        current_record = self.table.read_record(key)
+        updated_schema_encoding = copy.deepcopy(current_record.schema_encoding)
+        updated_user_data = copy.deepcopy(current_record.user_data)
+        
+        for i in range(len(columns)):
+            if columns[i] == None:
+                continue
+            else:
+                updated_schema_encoding[i] = "1"
+                updated_user_data[i] = columns[i]
+        
+        # TODO new_tid(key) -> tid
+        new_tid = new_tid(key)
+        new_tail_record = Record(key=key, rid=new_tid, schema_encoding=updated_schema_encoding, column_values=updated_user_data)
+        # TODO update_record -> bool
+        did_successfully_update = self.table.update_record(record=new_tail_record, rid=new_tid)
+        if did_successfully_update:
+            return True
+        else:
+            return False
 
     """
     :param start_range: int         # Start of the key range to aggregate 
