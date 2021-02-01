@@ -39,9 +39,13 @@ def testInsert():
 # testInsert()
 
 def __rid_to_page_location(rid: int) -> dict:
-    pr_index = 3 # len(self.book)
-    location_in_pr_index = math.floor((rid - (pr_index-1)*(ENTRIES_PER_PAGE_RANGE))/ENTRIES_PER_PAGE)
-    bp_index = math.floor(location_in_pr_index/ENTRIES_PER_PAGE)
+    #pr_index = 3 # len(self.book)
+    # number of entries in a page range is 8192
+    # number of entries in a base page is 512
+    pr_index = math.floor(rid / 8192)
+    index = rid % 8192
+    location_in_pr_index = math.floor(index / 512)
+    bp_index = index % 512
     return { 'page_range': pr_index, 'base_page': location_in_pr_index, 'page_index': bp_index }
 
-print(__rid_to_page_location(1024))
+print(__rid_to_page_location(8705))
