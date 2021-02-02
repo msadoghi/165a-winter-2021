@@ -23,21 +23,13 @@ class Query:
     """
     def delete(self, key):
 
-        rid = self.record_does_exist(key)
+        rid = self.table.record_does_exist(key)
         if rid == False:
             return False
         
         # Update delete value to true in page directory
         self.table.page_directory[rid]["deleted"] = True
-        schema_encoding = '0' * self.table.num_columns
-        record = self.table.read_record(key)
-        delete_record = Record(key, record.rid, schema_encoding, [None for i in range(self.table.num_columns)])
-        self.table.update_record(record=delete_record, rid=record.rid)
-        # 4. Go to tail pages and create a new record with all null values in the intries and zeroes for the scheme encoding
-        # 5. Set indirection pointer of new tail record to point to SMRU
-        # 6. Set indirection pointer of base page record to point to new MRU
-        # Return true if successfully found record and completed steps 1-6
-        pass
+
 
     """
     # Insert a record with specified columns
@@ -100,10 +92,11 @@ class Query:
     def update(self, key, *columns):
         # TODO : Discuss snapshots for future milestones
         # all updates will go to the tail page
-        if self.table.record_does_exist(key) == False:
+        validRID = self.table.record_does_exist(key)
+        if not validRID:
             return False
         
-        current_record = self.table.read_record(key) # read record need to give the MRU
+        current_record = self.table.read_record(validRID) # read record need to give the MRU
         updated_schema_encoding = copy.deepcopy(current_record.schema_encoding)
         updated_user_data = copy.deepcopy(current_record.user_data)
         

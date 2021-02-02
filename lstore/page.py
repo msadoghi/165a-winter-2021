@@ -2,8 +2,9 @@ from lstore.config import *
 
 class Page:
 
-    def __init__(self):
+    def __init__(self, column_num):
         self.num_records = 0
+        self.column_num = column_num
         self.data = bytearray(PAGE_SIZE)
 
     def has_capacity(self):
@@ -22,7 +23,15 @@ class Page:
         # assuming value is an integer
         starting_point = row * PAGE_RECORD_SIZE
         # start index : end index
-        self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = value.to_bytes(8, 'big')
+        print(value)
+        if isinstance(value, str):
+            converted_value = bytes(value, 'utf-8')
+        elif isinstance(value, int):
+            converted_value = value.to_bytes(8, 'big')
+        else:
+            raise ValueError("ERROR: value should be int or string")
+
+        self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = converted_value
         self.num_records += 1
         pass
 

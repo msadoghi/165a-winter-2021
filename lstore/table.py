@@ -71,13 +71,6 @@ import math
 
 '''
 
-INDIRECTION_PAGE = 0
-INDIRECTION_PAGE_INDEX = 1
-RID_COLUMN = 2
-TIMESTAMP_COLUMN = 3
-SCHEMA_ENCODING_COLUMN = 4
-
-
 class Base_page:
     '''
     :param tail_page_list: list      Stores a list of all Tail_Page objects associated with the Base_page
@@ -91,7 +84,7 @@ class Base_page:
         self.tail_page_list = [Tail_page(num_columns=num_columns, parent_key=bp_key, key=0)]
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
         # [[None, None, ...], [None, None, ...], [None, None, ...], [None, None, ...], Column 0, Column 1, Column 2, Column 3, Column 4, ...]
-        self.columns_list = [Page() for i in range(num_columns + META_COLUMN_COUNT)]
+        self.columns_list = [Page(i) for i in range(num_columns + META_COLUMN_COUNT)]
         self.tail_page_count = 1
         self.pr_key = parent_key
         self.key = bp_key
@@ -106,7 +99,7 @@ class Tail_page:
         self.bp_key = parent_key
         self.key = key
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
-        self.columns_list = [Page() for i in range(num_columns+ META_COLUMN_COUNT)]
+        self.columns_list = [Page(column_num=i) for i in range(num_columns+ META_COLUMN_COUNT)]
 
         
     
@@ -346,29 +339,18 @@ class Table:
         This function takes a newly created rid and a Record and finds the appropriate base page to insert it to and updates
         the rid value in the page_directory appropriately
         '''
-        # write_location = self._find_next_open_base_record()
+
         write_location = self.page_directory[rid]
         pr = write_location.get('page_range')
         bp = write_location.get('base_page')
         pi = write_location.get('page_index')
 
-        # go through every column value in the record and write it to the location
+        # TODO : write should return a bool
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
-            print("value", i, value)
             self.book[pr].pages[bp].columns_list[i].write(value, pi)
-        
-        # Update RID values for the Table.page_directory
-        record_info = {
-            'page_range': pr,
-            'base_page': bp,
-            'base_index': pi
-        }
-        self.page_directory[rid].update(record_info)
 
         return True
-
-
 
     def update_record(self, record: Record, rid: int) -> bool:
         '''
@@ -413,19 +395,21 @@ class Table:
         return True
 
 
-    def read_record(self, key):
+    def read_record(self, rid):
+        # scan column data column 0 to find the whole record
         record = Record(key, 0, "00000", [1, 2, 3, 4, 5, 6])
         return record
 
-    def record_does_exist(self, key) -> bool:
+    # returns rid if found else False
+    def record_does_exist(self, key):
         # get record to find the rid assocated with the key
-        found_record = self.read_record(key)
-        record_rid = found_record.rid
+        # TODO find_record(key)
+        # record_rid = found_record.rid
         if record_rid not in self.page_directory:
             return False
         else:
             # found key but record was deleted
-            if self.page_directory[record_rid]["deleted"] == True:
+            if self.page_directory[record_rid]["deleted"]:
                 return False
             else: # record exists
                 return record_rid
