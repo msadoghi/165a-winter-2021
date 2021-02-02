@@ -1,4 +1,7 @@
 from lstore.config import *
+from datetime import datetime
+import struct
+import time
 
 class Page:
 
@@ -16,26 +19,39 @@ class Page:
         else:
             raise ValueError('ERROR: current_empty_space must be greater or equal to zero.')
 
-    def write(self, value, row):
+    def write(self, value, row) -> bool:
         # if(row>self.num_records):
         #     self.num_records += 1
         # self.data[row] = value
-        # assuming value is an integer
+        # TODO if value > 8 bytes raise error
+        if (not self.has_capacity()):
+            return False
+        value_type = type(value)
         starting_point = row * PAGE_RECORD_SIZE
-        # start index : end index
-        print(value)
-        if isinstance(value, str):
-            converted_value = bytes(value, 'utf-8')
-        elif isinstance(value, int):
-            converted_value = value.to_bytes(8, 'big')
-        else:
-            raise ValueError("ERROR: value should be int or string")
 
-        self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = converted_value
+        if (value_type is str):
+            val = value
+            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = bytes(val, 'utf-8')
+            # convert string to bytearray
+        elif (value_type is int):
+            # start index : end index
+            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = value.to_bytes(8, 'big')
+        elif (value_type is datetime):
+            date = time.mktime(value.timetuple())
+            print("date", date)
+            # '>' denotes big endian, f denotes float
+            bin_datetime = struct.pack('>f', date)
+            print("bin_datetime", bin_datetime)
+            recovered_bindate = struct.unpack('>f', bin_datetime)[0]
+            print(datetime.fromtimestamp(recovered_bindate))
+            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = bin_datetime
+
         self.num_records += 1
         pass
 
     def read(self, row):
+        # TODO figure out what type of data we are supposed to be reading out of the byte array
+        # can be found using column_num ->  codes can be found in config
         return self.data[row * PAGE_RECORD_SIZE:(row * PAGE_RECORD_SIZE + PAGE_RECORD_SIZE - 1)]
 
 #     def insert_new_record(self,value):
