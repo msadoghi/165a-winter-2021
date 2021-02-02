@@ -24,7 +24,7 @@ class Query:
     def delete(self, key):
 
         rid = self.table.record_does_exist(key)
-        if rid == False:
+        if rid != 0 and rid == False: #check for when rid is 0
             return False
         
         # Update delete value to true in page directory
@@ -63,7 +63,6 @@ class Query:
     # Tests: query_tests.py
     """
     def select(self, key, column, query_columns):
-
         for value in query_columns:
             if value != 0 and value != 1:
                 raise ValueError('ERROR: query_columns list must contain 0 or 1 values.')
@@ -108,8 +107,10 @@ class Query:
                 updated_schema_encoding[i] = "1"
                 updated_user_data[i] = columns[i]
         
+        # TODO new_tid(key) -> tid
         new_tid = new_tid(key)
         new_tail_record = Record(key=key, rid=new_tid, schema_encoding=updated_schema_encoding, column_values=updated_user_data)
+        # TODO update_record -> bool
         did_successfully_update = self.table.update_record(record=new_tail_record, rid=new_tid)
         if did_successfully_update:
             return True
@@ -125,6 +126,7 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
+        # Use index functions to sum all values specifed by aggrehate_column_index that fall between start_range and end_range
         # Note that the MRU for the specified aggregate_column_index needs to be used in the sum, so make sure to check the schema encoding
         pass
 
