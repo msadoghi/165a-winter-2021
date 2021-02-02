@@ -29,11 +29,7 @@ class Page:
         value_type = type(value)
         starting_point = row * PAGE_RECORD_SIZE
 
-        if (value_type is str):
-            val = value
-            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)] = bytes(val, 'utf-8')
-            # convert string to bytearray
-        elif (value_type is int):
+        if (value_type is int):
             # start index : end index
             self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)] = value.to_bytes(8, 'big')
         elif (value_type is datetime):
@@ -55,6 +51,7 @@ class Page:
         starting_point = row * PAGE_RECORD_SIZE
         ret_value_in_bytes = self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)]
         int_val = int.from_bytes(bytes=ret_value_in_bytes, byteorder="big")
+        
         return int_val
 
 #     def insert_new_record(self,value):

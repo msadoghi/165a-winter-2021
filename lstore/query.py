@@ -1,6 +1,8 @@
 from lstore.table import Table
 from lstore.index import Index
 from lstore.record import Record
+from lstore.config import *
+from lstore.helpers import *
 from copy import deepcopy
 
 class Query:
@@ -21,6 +23,7 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
+
     def delete(self, key):
 
         rid = self.table.record_does_exist(key)
@@ -37,12 +40,11 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
-
-        schema_encoding = '0' * self.table.num_columns
+        blank_schema_encoding = 0
         new_rid = self.table.new_rid()
         unique_identifier = columns[0]
         columns_list = list(columns)
-        new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=schema_encoding, column_values=columns_list)
+        new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=blank_schema_encoding, column_values=columns_list)
         print("new_record", new_record.all_columns)
         did_successfully_write = self.table.write_new_record(record=new_record, rid=new_rid)
 
@@ -93,25 +95,33 @@ class Query:
         # TODO : Discuss snapshots for future milestones
         # all updates will go to the tail page
         validRID = self.table.record_does_exist(key=key)
-        if not validRID:
+        print("validRid", validRID)
+        if validRID != 0 and validRID == False:
+            print("here")
             return False
         
         current_record = self.table.read_record(rid=validRID) # read record need to give the MRU
-        updated_schema_encoding = copy.deepcopy(current_record.schema_encoding)
-        updated_user_data = copy.deepcopy(current_record.user_data)
+        print("current_record", current_record.all_columns)
+        schema_encoding_as_int = deepcopy(current_record.all_columns[SCHEMA_ENCODING_COLUMN])
+        updated_user_data = deepcopy(current_record.user_data)
         
         for i in range(len(columns)):
+            print("colummns[i]", columns[i])
             if columns[i] == None:
                 continue
             else:
-                updated_schema_encoding[i] = "1"
+                schema_encoding_as_int = set_bit(value=schema_encoding_as_int, bit_index=i)
                 updated_user_data[i] = columns[i]
         
-        # TODO new_tid(key) -> tid
-        new_tid = new_tid(key)
-        new_tail_record = Record(key=key, rid=new_tid, schema_encoding=updated_schema_encoding, column_values=updated_user_data)
-        # TODO update_record -> bool
-        did_successfully_update = self.table.update_record(record=new_tail_record, rid=new_tid)
+        # for i in range(len(columns)):
+        #     print("Column num", i, get_bit(value=schema_encoding_as_int, bit_index=i))
+        
+        new_tail_record = Record(key=key, rid=validRID, schema_encoding=schema_encoding_as_int, column_values=updated_user_data)
+        print("new_tail_col", new_tail_record.all_columns)
+        did_successfully_update = self.table.update_record(record=new_tail_record, rid=validRID)
+        # TODO we need a new tid
+        # change the indirection of the base page record to new update in tail page
+        # change the tail page indirection to the SRMU
         if did_successfully_update:
             return True
         else:
