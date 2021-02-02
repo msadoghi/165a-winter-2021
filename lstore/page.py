@@ -28,6 +28,7 @@ class Page:
             return False
         value_type = type(value)
         starting_point = row * PAGE_RECORD_SIZE
+
         if (value_type is str):
             val = value
             self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = bytes(val, 'utf-8')
@@ -44,6 +45,7 @@ class Page:
             recovered_bindate = struct.unpack('>f', bin_datetime)[0]
             print(datetime.fromtimestamp(recovered_bindate))
             self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = bin_datetime
+
         self.num_records += 1
         pass
 
