@@ -112,8 +112,8 @@ class Base_page:
         then creates a TID dict that is mapped in the BP tail_page_directory.
         '''
         tid = self.num_tail_page_records
-        self.num_records += 1
-        self.page_directory[tid] = self._new_rid_dict(tid)
+        self.num_tail_page_records += 1
+        self.tail_page_directory[tid] = self.__new_tid_dict(tid)
 
         return tid
 
@@ -134,7 +134,7 @@ class Base_page:
         # Check if current page range has space for another record
         if tail_page_index > len(self.tail_page_list)-1:
             self.create_new_tail_page()
-
+        # print("tail_page", tail_page_index, "page_index", physical_page_index)
         return { 'tail_page': tail_page_index, 'page_index': physical_page_index }
 
 
@@ -307,16 +307,18 @@ class Table:
         pr = rid_info.get('page_range')
         bp = rid_info.get('base_page')
         bp_index = rid_info.get('base_index')
+        print("rid_info", rid_info)
 
         update_tid = self.book[pr].pages[bp].new_tid()
+        print("update tid", update_tid)
         update_record = self.book[pr].pages[bp].tail_page_directory.get(update_tid)
-
+        print("update record", update_record)
         # check if the record has been updated or not 
         if rid_info.get('updated') == False:
             location_info = {
-                'mru_tid': -1,
-                'mru_page': -1,         # TODO: this will be the indirection value for update, may want to evaluate how we do this or look into special null values
-                'mru_page_index': -1,   # checking List element -1 may be allowed (off set from back?) and cause issues, maybe store a string or something
+                'mru_tid': pr,
+                'mru_page': bp,         # TODO: this will be the indirection value for update, may want to evaluate how we do this or look into special null values
+                'mru_page_index': bp_index,   # checking List element -1 may be allowed (off set from back?) and cause issues, maybe store a string or something
                 'update_tid': update_tid,
                 'update_page': update_record.get('tail_page'),
                 'update_page_index': update_record.get('page_index')
@@ -415,13 +417,17 @@ class Table:
         '''
         
         # Get info about where to write the record
-        write_info = __get_update_write_location_info(rid=rid)
+        write_info = self.__get_update_write_location_info(rid=rid)
+        print("write_info", write_info)
 
-        rid_info = self.page_directoy.get(rid)
+        rid_info = self.page_directory.get(rid)
+        print("rid_info", rid_info)
+        # record location of base page
         pr = rid_info.get('page_range')
         bp = rid_info.get('base_page')
-        bp_index = rid_info.get('base_index')
+        bp_index = rid_info.get('page_index')
 
+        # record location of new tail page
         update_tid = write_info.get('update_tid')
         update_tp = write_info.get('update_page')
         update_tp_index = write_info.get('update_page_index')
@@ -434,11 +440,12 @@ class Table:
         record.all_columns[INDIRECTION] = mru_tid
 
         # go through every column value in the record and write it to the location
-        for i in range(record.all_columns):
+        for i in range(len(record.all_columns)):
             value = record.all_columns[i]
             self.book[pr].pages[bp].tail_page_list[update_tp].columns_list[i].write(value, update_tp_index)
 
         # Update Indirection column for Base Record
+        print("update_tid", update_tid, "bp_index", bp_index)
         self.book[pr].pages[bp].columns_list[INDIRECTION].write(update_tid, bp_index)
 
         if rid_info.get('updated') == True:
