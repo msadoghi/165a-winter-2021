@@ -84,10 +84,67 @@ class Base_page:
         self.tail_page_list = [Tail_page(num_columns=num_columns, parent_key=bp_key, key=0)]
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
         self.columns_list = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
+        self.tail_page_directory = {}
         self.tail_page_count = 1
+        self.num_tail_page_records = 0
         self.pr_key = parent_key
         self.key = bp_key
+    
 
+    def create_new_tail_page(self) -> int:
+        '''
+        This function creates a new Tail_page for a Base_page and returns its index for Base_page.tail_page_list
+        '''
+
+        # length of a 0 - indexed list will return the appropriate index that the tail page will reside at 
+        # in Base_page.tail_page_list
+        tp_index = len(self.tail_page_list)
+        num_columns = len(self.columns_list) - META_COLUMN_COUNT
+        new_tail_page = Tail_page(num_columns=num_columns, parent_key=self.key, key=tp_index)
+        self.tail_page_list.append(new_tail_page)
+
+        return tp_index
+    
+
+    def new_tid(self) -> int:
+        '''
+        Function that creates a new TID, increments the amount of records in the Base_page,
+        then creates a TID dict that is mapped in the BP tail_page_directory.
+        '''
+        tid = self.num_tail_page_records
+        self.num_records += 1
+        self.page_directory[tid] = self._new_rid_dict(tid)
+
+        return tid
+
+
+    def __new_tid_dict(self, tid: int) -> dict:
+        '''
+        Helper function that returns a dict object holding values associated with a record's RID for use
+        in the Table page_directory. Values not relavent to a particular record should keep the None value.
+
+        :param tid: int             Integer value of the Tail Identification
+        :param tail_page: int       Integer value associated with the record's Tail_page index within the Base_page
+        :param page_index: int      Integer value associated with the record's Page index within the Tail_page
+        '''
+
+        tail_page_index = math.floor(tid / ENTRIES_PER_PAGE) 
+        physical_page_index = tid % ENTRIES_PER_PAGE
+
+        # Check if current page range has space for another record
+        if tail_page_index > len(self.tail_page_list)-1:
+            self.create_new_tail_page()
+
+        return { 'tail_page': tail_page_index, 'page_index': physical_page_index }
+
+
+    def __tid_to_page_location(self, tid: int) -> dict:
+
+        tail_page_index = math.floor(tid / ENTRIES_PER_PAGE) 
+        physical_page_index = tid % ENTRIES_PER_PAGE
+
+        return { 'tail_page': tail_page_index, 'page_index': physical_page_index }
+        
 
 class Tail_page:
     '''
@@ -99,7 +156,6 @@ class Tail_page:
         self.key = key
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
         self.columns_list = [Page(column_num=i) for i in range(num_columns+ META_COLUMN_COUNT)]
-
         
     
 class Page_range:
@@ -135,8 +191,7 @@ class Table:
         self.book = [Page_range(num_columns=num_columns, parent_key=key, pr_key=0)] # Initialize with a single Page_range
         self.num_records = 0
         self.column_names = { 
-            0: 'Indirection Page',
-            0: 'Indirection Page Index',
+            0: 'Indirection',
             1: 'RID', 
             2: 'Time Stamp',
             3: 'Schema'
@@ -150,7 +205,7 @@ class Table:
     def new_rid(self) -> int:
         '''
         Function that creates a new RID, increments the amount of records in the table,
-        then creates a blank RID dict that is  mapped in the Table page_directory.
+        then creates a RID dict that is mapped in the Table page_directory.
         '''
         rid = self.num_records
         self.num_records += 1
@@ -159,7 +214,7 @@ class Table:
         return rid
     
 
-    def _new_rid_dict(self, rid) -> dict:
+    def __new_rid_dict(self, rid) -> dict:
         '''
         Helper function that returns a dict object holding values associated with a record's RID for use
         in the Table page_directory. Values not relavent to a particular record should keep the None value.
@@ -188,13 +243,20 @@ class Table:
         }
         
         return record_info
-    
-    def __rid_to_page_location(rid: int) -> dict:
+
+
+    def __rid_to_page_location(self, rid: int) -> dict:
+        '''
+        Helper function that returns a dict of the memory location for a given RID
+        '''
+
         page_range_index = math.floor(rid / ENTRIES_PER_PAGE_RANGE)
         index = rid % ENTRIES_PER_PAGE_RANGE
         base_page_index = math.floor(index / ENTRIES_PER_PAGE)
         physical_page_index = index % ENTRIES_PER_PAGE
+
         return { 'page_range': page_range_index, 'base_page': base_page_index, 'page_index': physical_page_index }
+
 
     def set_column_name(self, name: str, column_key: int) -> None:
         '''
@@ -212,15 +274,15 @@ class Table:
 
     def is_page_full(self, page: Page) -> bool:
         '''
-        Given a Page object this function will look at the last element of the page based on PAGE_SIZE/PAGE_RECORD_SIZE
-        in config.py, then return True if there is a value there and return False if there is not a value there.
+        Given a Page object this function will look at the total elements a page can hold: PAGE_SIZE/PAGE_RECORD_SIZE
+        in config.py, then return True if the record count for the page is equal to that value and False otherwise.
         :param page: Page       Page object to check
         :return: bool           Returns True if page is full and False otherwise
         '''
 
-        last_element = (PAGE_SIZE / PAGE_RECORD_SIZE) - 1 # -1 to account for 0 indexing
-        if page.read(last_element) is not None:     # TODO: Look at None values for 8-bytes?
-            return True
+        total_elements_possible = (PAGE_SIZE / PAGE_RECORD_SIZE)  # How many total records the page can hold
+        if page.num_records == total_elements_possible:           # If the record count is equal to the total possible                                                                 
+            return True                                           # the page is full
         return False
 
 
@@ -237,22 +299,7 @@ class Table:
         return pr_index
     
 
-    def create_new_tail_page(self, base_page: Base_page) -> int:
-        '''
-        This function creates a new Tail_page for a Base_page and returns its index for Base_page.tail_page_list
-        '''
-
-        # length of a 0 - indexed list will return the appropriate index that the tail page will reside at 
-        # in Base_page.tail_page_list
-        tp_index = len(base_page.tail_page_list)
-        num_columns = len(base_page.columns_list) - META_COLUMN_COUNT
-        new_tail_page = Tail_page(num_columns=num_columns, parent_key=base_page.key, key=tp_index)
-        base_page.tail_page_list.append(new_tail_page)
-
-        return tp_index
-
-
-    def _get_update_write_location_info(self, rid: int) -> dict:
+    def __get_update_write_location_info(self, rid: int) -> dict:
         '''
         This function takes a RID and finds the appropriate place to write and returns a dict of the indices
         '''
@@ -261,34 +308,40 @@ class Table:
         bp = rid_info.get('base_page')
         bp_index = rid_info.get('base_index')
 
-        # check if the record is new and if it is return the base page and index where to write
+        update_tid = self.book[pr].pages[bp].new_tid()
+        update_record = self.book[pr].pages[bp].tail_page_directory.get(update_tid)
+
+        # check if the record has been updated or not 
         if rid_info.get('updated') == False:
             location_info = {
-            'mru_page': None,
-            'mru_page_index': None,
-            'update_page': bp,
-            'update_page_index': bp_index
+                'mru_tid': -1,
+                'mru_page': -1,         # TODO: this will be the indirection value for update, may want to evaluate how we do this or look into special null values
+                'mru_page_index': -1,   # checking List element -1 may be allowed (off set from back?) and cause issues, maybe store a string or something
+                'update_tid': update_tid,
+                'update_page': update_record.get('tail_page'),
+                'update_page_index': update_record.get('page_index')
             }
-            return location_info   
+            return location_info
         
-        # If we're here the record needs to be updated
-        # check Indirection Page column value for the record associated with the RID
-        ind_page = self.book[pr].pages[bp].columns_list[INDIRECTION_PAGE].read(bp_index)
-        ind_page_index = self.book[pr].pages[bp].columns_list[INDIRECTION_PAGE_INDEX].read(bp_index)
-
-        open_tail_record = _find_next_open_tail_record(base_page=self.book[pr].pages[bp])
+        # If we're here the record has already been updated and needs to be updated again
+        # check Indirection column value for the TID associated with the RID
+        indirection_tid = self.book[pr].pages[bp].columns_list[INDIRECTION].read(bp_index)
+        tid_record = self.book[pr].pages[bp].tail_page_directory.get(indirection_tid)
+        
 
         location_info = {
-            'mru_page': ind_page,
-            'mru_page_index': ind_page_index,
-            'update_page': open_tail_record.get('tail_page'),
-            'update_page_index': open_tail_record.get('tail_page_index') 
+            'mru_tid': indirection_tid,
+            'mru_page': tid_record.get('tail_page'),
+            'mru_page_index': tid_record.get('page_index'),
+            'update_tid': update_tid,
+            'update_page': update_record.get('tail_page'),
+            'update_page_index': update_record.get('page_index') 
         }
 
         return location_info
 
 
-    def _find_next_open_tail_record(self, base_page: Base_page) -> dict:
+    def __find_next_open_tail_record(self, base_page: Base_page) -> dict:
         '''
         finds the next available tail page record slot and returns a dict with the indices, 
         and creates a new tail page if needed
@@ -297,9 +350,9 @@ class Table:
         # for each tail page associated with the base page
         for tail_page in base_page.tail_page_list:
             # for each element in the indirection page column in the tail page
-            for i in range(tail_page.columns_list[INDIRECTION_PAGE]):
+            for i in range(tail_page.columns_list[INDIRECTION]):
                 # if there is no data the record is open
-                if tail_page.columns_list[INDIRECTION_PAGE].read[i] is None:   # TODO: look at different value maybe, how do we want oldest update to look?
+                if tail_page.columns_list[INDIRECTION].read[i] is 0:   # TODO: look at different value maybe, how do we want oldest update to look?
                     # return the index to insert the update
                     return { 'tail_page': tp, 'tail_page_index': i }
         tp += 1
@@ -312,7 +365,7 @@ class Table:
         return { 'tail_page': new_tp_index, 'tail_page_index': 0 }
     
 
-    def _find_next_open_base_record(self) -> dict:
+    def __find_next_open_base_record(self) -> dict:
         '''
         finds the next available base page record slot and returns a dict with the indices, 
         and creates a new page range if needed
@@ -337,6 +390,7 @@ class Table:
         new_pr_index = self.create_new_page_range()
         return { 'page_range': new_pr_index, 'base_page': 0, 'page_index': 0 }
 
+
     def write_new_record(self, record: Record, rid: int) -> bool:
         '''
         This function takes a newly created rid and a Record and finds the appropriate base page to insert it to and updates
@@ -348,12 +402,12 @@ class Table:
         bp = write_location.get('base_page')
         pi = write_location.get('page_index')
 
-        # TODO : write should return a bool
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
             self.book[pr].pages[bp].columns_list[i].write(value, pi)
 
         return True
+
 
     def update_record(self, record: Record, rid: int) -> bool:
         '''
@@ -361,36 +415,36 @@ class Table:
         '''
         
         # Get info about where to write the record
-        write_info = _get_update_write_location_info(rid=rid)
+        write_info = __get_update_write_location_info(rid=rid)
 
         rid_info = self.page_directoy.get(rid)
         pr = rid_info.get('page_range')
         bp = rid_info.get('base_page')
         bp_index = rid_info.get('base_index')
-        tp = write_info.get('update_page')
-        tp_index = write_info.get('update_page_index')
+
+        update_tid = write_info.get('update_tid')
+        update_tp = write_info.get('update_page')
+        update_tp_index = write_info.get('update_page_index')
+
+        mru_tid = write_info.get('mru_tid')
         mru_tp = write_info.get('mru_page')
         mru_tp_index = write_info.get('mru_page_index')
 
-        # Make Indirection columns of Record point to MRU
-        record.all_columns[INDIRECTION_PAGE] = mru_tp
-        record.all_columns[INDIRECATION_PAGE_INDEX] = mru_tp_index
+        # Make Indirection column of Record point to MRU
+        record.all_columns[INDIRECTION] = mru_tid
 
         # go through every column value in the record and write it to the location
         for i in range(record.all_columns):
             value = record.all_columns[i]
-            self.book[pr].pages[bp].tail_page_list[tp].columns_list[i].write(value, tp_index)
+            self.book[pr].pages[bp].tail_page_list[update_tp].columns_list[i].write(value, update_tp_index)
 
-        # Update Indirection columns for Base Record
-        self.book[pr].pages[bp].columns_list[INDIRECTION_PAGE].write(tp, bp_index)
-        self.book[pr].pages[bp].columns_list[INDIRECTION_PAGE_INDEX].write(tp_index, bp_index)
+        # Update Indirection column for Base Record
+        self.book[pr].pages[bp].columns_list[INDIRECTION].write(update_tid, bp_index)
 
         if rid_info.get('updated') == True:
 
             # Update Indirection columns for previous update
-            self.book[pr].pages[bp].tail_page_list[mru_tp].column_list[INDIRECTION_PAGE].write(tp, mru_tp_index)
-            self.book[pr].pages[bp].tail_page_list[mru_tp].column_list[INDIRECTION_PAGE_INDEX].write(tp_index, mru_tp_index)
-
+            self.book[pr].pages[bp].tail_page_list[mru_tp].column_list[INDIRECTION].write(update_tid, mru_tp_index)
             return True
 
         # set rid value to updated for future
@@ -406,7 +460,6 @@ class Table:
     # returns rid if found else False
     def record_does_exist(self, key):
         # get record to find the rid assocated with the key
-        # TODO find_record(key)
         found_rid = False
         for page_pange in self.book: # for each page range
             for base_page in page_pange.pages: # for each base page (0-15)
@@ -423,3 +476,14 @@ class Table:
 
     def new_tid(key) -> int:
         return 1
+
+        # record_rid = found_record.rid
+        if record_rid not in self.page_directory:
+            return False
+        else:
+            # found key but record was deleted
+            if self.page_directory[record_rid]["deleted"]:
+                return False
+            else: # record exists
+                return record_rid
+
