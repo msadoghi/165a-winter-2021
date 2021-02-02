@@ -108,10 +108,8 @@ class Query:
                 updated_schema_encoding[i] = "1"
                 updated_user_data[i] = columns[i]
         
-        # TODO new_tid(key) -> tid
         new_tid = new_tid(key)
         new_tail_record = Record(key=key, rid=new_tid, schema_encoding=updated_schema_encoding, column_values=updated_user_data)
-        # TODO update_record -> bool
         did_successfully_update = self.table.update_record(record=new_tail_record, rid=new_tid)
         if did_successfully_update:
             return True
@@ -127,7 +125,6 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
-        # Use index functions to sum all values specifed by aggrehate_column_index that fall between start_range and end_range
         # Note that the MRU for the specified aggregate_column_index needs to be used in the sum, so make sure to check the schema encoding
         pass
 

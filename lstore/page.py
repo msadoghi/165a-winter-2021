@@ -31,11 +31,11 @@ class Page:
 
         if (value_type is str):
             val = value
-            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = bytes(val, 'utf-8')
+            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)] = bytes(val, 'utf-8')
             # convert string to bytearray
         elif (value_type is int):
             # start index : end index
-            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = value.to_bytes(8, 'big')
+            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)] = value.to_bytes(8, 'big')
         elif (value_type is datetime):
             date = time.mktime(value.timetuple())
             # print("date", date)
