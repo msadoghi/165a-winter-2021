@@ -19,4 +19,17 @@ def test_insert():
     query = Query(table)
     did_insert = query.insert(999, 1, 2, 3, 4, 5)
 
-test_insert()
+# test_insert()
+
+def test_insert_and_see_if_exists():
+    database = Database()
+    database.create_table("Students", 6, 0)
+    table = database.get_table("Students")
+    query = Query(table)
+    key = 888887980
+    did_insert = query.insert(key, 1, 2, 3, 4, 5)
+    print("did_insert:", did_insert)
+    ret_value = query.table.record_does_exist(key)
+    print("ret_value:", ret_value)
+
+test_insert_and_see_if_exists()
