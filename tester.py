@@ -42,10 +42,10 @@ def __rid_to_page_location(rid: int) -> dict:
     #pr_index = 3 # len(self.book)
     # number of entries in a page range is 8192
     # number of entries in a base page is 512
-    pr_index = math.floor(rid / 8192)
-    index = rid % 8192
-    location_in_pr_index = math.floor(index / 512)
-    bp_index = index % 512
-    return { 'page_range': pr_index, 'base_page': location_in_pr_index, 'page_index': bp_index }
+    page_range_index = math.floor(rid / ENTRIES_PER_PAGE_RANGE)
+    index = rid % ENTRIES_PER_PAGE_RANGE
+    base_page_index = math.floor(index / ENTRIES_PER_PAGE)
+    physical_page_index = index % ENTRIES_PER_PAGE
+    return { 'page_range': page_range_index, 'base_page': base_page_index, 'page_index': physical_page_index }
 
-print(__rid_to_page_location(8705))
+print(__rid_to_page_location(2050))
