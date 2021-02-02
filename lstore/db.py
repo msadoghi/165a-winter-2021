@@ -30,7 +30,7 @@ class Database():
     """
     def drop_table(self, name):
         self.tables[name] = None
-        pass
+        return f"You have successfully dropped the table: {name}"
 
     """
     # Returns table with the passed name

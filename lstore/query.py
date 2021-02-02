@@ -29,7 +29,7 @@ class Query:
         
         # Update delete value to true in page directory
         self.table.page_directory[rid]["deleted"] = True
-
+        return True
 
     """
     # Insert a record with specified columns
@@ -43,6 +43,7 @@ class Query:
         unique_identifier = columns[0]
         columns_list = list(columns)
         new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=schema_encoding, column_values=columns_list)
+        print("new_record", new_record.all_columns)
         did_successfully_write = self.table.write_new_record(record=new_record, rid=new_rid)
 
         if did_successfully_write:
@@ -62,11 +63,13 @@ class Query:
     # Tests: query_tests.py
     """
     def select(self, key, column, query_columns):
-        # TODO record_does_exist(key) -> return rid if true and return false
-        # TODO  # read_record(key) -> returns a record if successful, else returns false
-                # Check the schema encoding to see if we need to get the value from the base page or from the tail page
-                # When you return a record, we need the MRU, not the value in the base page if an update exists for a column
-        selected_record = self.table.read_record(key)
+
+        for value in query_columns:
+            if value != 0 and value != 1:
+                raise ValueError('ERROR: query_columns list must contain 0 or 1 values.')
+
+        validRID = self.table.record_does_exist(key=key)
+        selected_record = self.table.read_record(rid=validRID)
 
         if selected_record == False:
             return False
@@ -76,10 +79,8 @@ class Query:
         for i in range(len(query_columns)):
             if query_columns[i] == 1:
                 filtered_record_list.append(selected_record.user_data[i])
-            elif query_columns[i] == 0:
+            else: # skip past 0
                 continue
-            else:
-                raise ValueError('ERROR: query_columns list must contain 0 or 1 values.')
         
         return_list.append(filtered_record_list)
         return return_list
@@ -92,11 +93,11 @@ class Query:
     def update(self, key, *columns):
         # TODO : Discuss snapshots for future milestones
         # all updates will go to the tail page
-        validRID = self.table.record_does_exist(key)
+        validRID = self.table.record_does_exist(key=key)
         if not validRID:
             return False
         
-        current_record = self.table.read_record(validRID) # read record need to give the MRU
+        current_record = self.table.read_record(rid=validRID) # read record need to give the MRU
         updated_schema_encoding = copy.deepcopy(current_record.schema_encoding)
         updated_user_data = copy.deepcopy(current_record.user_data)
         

@@ -83,8 +83,7 @@ class Base_page:
         # Create a starting Tail Page for updates
         self.tail_page_list = [Tail_page(num_columns=num_columns, parent_key=bp_key, key=0)]
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
-        # [[None, None, ...], [None, None, ...], [None, None, ...], [None, None, ...], Column 0, Column 1, Column 2, Column 3, Column 4, ...]
-        self.columns_list = [Page(i) for i in range(num_columns + META_COLUMN_COUNT)]
+        self.columns_list = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
         self.tail_page_count = 1
         self.pr_key = parent_key
         self.key = bp_key
@@ -401,22 +400,26 @@ class Table:
 
     def read_record(self, rid):
         # scan column data column 0 to find the whole record
-        record = Record(key, 0, "00000", [1, 2, 3, 4, 5, 6])
+        record = Record(rid, 0, "00000", [1, 2, 3, 4, 5, 6])
         return record
 
     # returns rid if found else False
     def record_does_exist(self, key):
         # get record to find the rid assocated with the key
         # TODO find_record(key)
-        # record_rid = found_record.rid
-        if record_rid not in self.page_directory:
-            return False
-        else:
-            # found key but record was deleted
-            if self.page_directory[record_rid]["deleted"]:
-                return False
-            else: # record exists
-                return record_rid
+        found_rid = False
+        for page_pange in self.book: # for each page range
+            for base_page in page_pange.pages: # for each base page (0-15)
+                key_column = base_page.columns_list[KEY_COLUMN]
+                rid_column = base_page.columns_list[RID_COLUMN]
+                for i in range(ENTRIES_PER_PAGE):
+                    entry_value = key_column.read(i)
+                    if entry_value == key:
+                        found_rid = rid_column.read(i)
+                        if self.page_directory[found_rid]["deleted"]:
+                            found_rid = False
+        
+        return found_rid
 
     def new_tid(key) -> int:
         return 1

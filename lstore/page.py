@@ -38,21 +38,24 @@ class Page:
             self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = value.to_bytes(8, 'big')
         elif (value_type is datetime):
             date = time.mktime(value.timetuple())
-            print("date", date)
+            # print("date", date)
             # '>' denotes big endian, f denotes float
             bin_datetime = struct.pack('>f', date)
-            print("bin_datetime", bin_datetime)
+            # print("bin_datetime", bin_datetime)
             recovered_bindate = struct.unpack('>f', bin_datetime)[0]
-            print(datetime.fromtimestamp(recovered_bindate))
-            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE - 1)] = bin_datetime
+            # print(datetime.fromtimestamp(recovered_bindate))
+            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)] = bin_datetime
 
         self.num_records += 1
-        pass
+        return
 
     def read(self, row):
         # TODO figure out what type of data we are supposed to be reading out of the byte array
         # can be found using column_num ->  codes can be found in config
-        return self.data[row * PAGE_RECORD_SIZE:(row * PAGE_RECORD_SIZE + PAGE_RECORD_SIZE - 1)]
+        starting_point = row * PAGE_RECORD_SIZE
+        ret_value_in_bytes = self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)]
+        int_val = int.from_bytes(bytes=ret_value_in_bytes, byteorder="big")
+        return int_val
 
 #     def insert_new_record(self,value):
 #         # assuming value is an integer
