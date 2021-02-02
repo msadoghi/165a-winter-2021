@@ -169,12 +169,16 @@ class Table:
         :param base_page: int       Integer value associated with the record's Base_page index within the Page_range
         :param base_index: int      Integer value associated with the record's Page index within the Base_page
         :param deleted: bool        Specifies whether the record was deleted
-        :param updated: bool        # TODO discuss if this is useful
+        :param updated: bool        Determines whether we need to scan tail pages at all
         '''
         page_range_index = math.floor(rid / ENTRIES_PER_PAGE_RANGE)
         index = rid % ENTRIES_PER_PAGE_RANGE
         base_page_index = math.floor(index / ENTRIES_PER_PAGE)
         physical_page_index = index % ENTRIES_PER_PAGE
+
+        # Check if current page range has space for another record
+        if page_range_index > len(self.book)-1:
+            self.create_new_page_range()
 
         record_info = {
             'page_range': page_range_index,
@@ -225,7 +229,7 @@ class Table:
         '''
         This function creates a new Page_range for the Table and returns its key index for the Table.book list
         '''
-
+        
         # length of a 0 - indexed list will return the appropriate index that the pr will reside at in Table.book
         pr_index = len(self.book)
         new_page_range = Page_range(num_columns=self.num_columns, parent_key=self.key, pr_key= pr_index)
