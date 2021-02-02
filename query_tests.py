@@ -32,4 +32,19 @@ def test_insert_and_see_if_exists():
     ret_value = query.table.record_does_exist(key)
     print("ret_value:", ret_value)
 
-test_insert_and_see_if_exists()
+# test_insert_and_see_if_exists()
+
+def test_insert_and_delete_and_see_if_exists():
+    database = Database()
+    database.create_table("Students", 6, 0)
+    table = database.get_table("Students")
+    query = Query(table)
+    key = 888887980
+    did_insert = query.insert(key, 1, 2, 3, 4, 5)
+    print("did_insert:", did_insert)
+    did_delete = query.delete(key)
+    print("did_delete", did_delete)
+    ret_value = query.table.record_does_exist(key)
+    print("ret_value:", ret_value)
+
+test_insert_and_delete_and_see_if_exists()

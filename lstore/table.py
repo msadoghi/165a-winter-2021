@@ -209,7 +209,7 @@ class Table:
         '''
         rid = self.num_records
         self.num_records += 1
-        self.page_directory[rid] = self._new_rid_dict(rid)
+        self.page_directory[rid] = self.__new_rid_dict(rid)
 
         return rid
     
@@ -457,13 +457,16 @@ class Table:
         record = Record(rid, 0, "00000", [1, 2, 3, 4, 5, 6])
         return record
 
-
+    
     # returns rid if found else False
     def record_does_exist(self, key):
         # get record to find the rid assocated with the key
+        last_record = self.__rid_to_page_location(self.num_records)
+        last_base_page = last_record.get("base_page")
         found_rid = False
-        for page_pange in self.book: # for each page range
-            for base_page in page_pange.pages: # for each base page (0-15)
+        current_base_page = 0
+        for page_range in self.book: # for each page range
+            for base_page in page_range.pages: # for each base page (0-15)
                 key_column = base_page.columns_list[KEY_COLUMN]
                 rid_column = base_page.columns_list[RID_COLUMN]
                 for i in range(ENTRIES_PER_PAGE):
@@ -472,6 +475,12 @@ class Table:
                         found_rid = rid_column.read(i)
                         if self.page_directory[found_rid]["deleted"]:
                             found_rid = False
+                            return found_rid
+                        else:
+                            return found_rid
+            current_base_page += 1
+            if current_base_page > last_base_page:
+                return found_rid
         
         return found_rid
 
