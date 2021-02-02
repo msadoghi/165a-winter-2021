@@ -457,6 +457,7 @@ class Table:
         record = Record(rid, 0, "00000", [1, 2, 3, 4, 5, 6])
         return record
 
+
     # returns rid if found else False
     def record_does_exist(self, key):
         # get record to find the rid assocated with the key
@@ -473,17 +474,4 @@ class Table:
                             found_rid = False
         
         return found_rid
-
-    def new_tid(key) -> int:
-        return 1
-
-        # record_rid = found_record.rid
-        if record_rid not in self.page_directory:
-            return False
-        else:
-            # found key but record was deleted
-            if self.page_directory[record_rid]["deleted"]:
-                return False
-            else: # record exists
-                return record_rid
 
