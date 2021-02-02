@@ -453,10 +453,41 @@ class Table:
 
 
     def read_record(self, rid):
-        # scan column data column 0 to find the whole record
-        record = Record(rid, 0, "00000", [1, 2, 3, 4, 5, 6])
-        return record
+        record_info = self.page_directory[rid]
+        #check if updated value is false
+        pg_range = record_info.get("page_range")
+        bs_page = record_info.get("base_page")
+        pg_index = record_info.get("page_index")
+        all_entries = []
 
+        if not record_info["updated"]:
+            for col in range(self.num_columns + META_COLUMN_COUNT):
+                entry = self.book[pg_range].pages[bs_page].columns_list[col].read(pg_index)
+                all_entries.append(entry)
+
+            key = all_entries[KEY_COLUMN]
+            schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
+            user_cols = all_entries[KEY_COLUMN: ]
+            new_record = Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
+        # else:
+
+        #     tail_info = self.tail_page_directory[rid]
+        #     pg_range = tail_info.get("page_range")
+        #     tail_page = tail_info.get("tail_page")
+        #     tail_index = tail_info.get("page_index")
+
+        #     for col in range(self.num_columns + META_COLUMN_COUNT):
+        #         entry = self.book[pg_range].pages[tail_page].num_columns[col].read(tail_index)
+        #         all_entries.append(entry)
+
+        #     key = all_entries[KEY_COLUMN]
+        #     schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
+        #     user_cols = all_entries[KEY_COLUMN: ]
+        #     new_record = Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
+
+
+        return new_record
+            
     
     # returns rid if found else False
     def record_does_exist(self, key):
