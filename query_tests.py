@@ -9,11 +9,11 @@ def test_select():
     table = database.get_table("Students")
     query = Query(table)
     did_insert = query.insert(798329, 1, 2, 3, 4, 5)
-    ret_record = query.select(798329, 0, [0, 1, 0, 1, 0, 1])
+    ret_record = query.select(798329, 0, [1, 1, 1, 1, 0, 1])
     print(ret_record[0].user_data)
     # print(ret_record)
 
-# test_select()
+test_select()
 
 def test_insert():
     database = Database()
@@ -21,8 +21,14 @@ def test_insert():
     table = database.get_table("Students")
     query = Query(table)
     did_insert = query.insert(999, 1, 2, 3, 4, 5)
+    did_insert2 = query.insert(998, pow(2,64)-1, 2, 3, 4, 5)
+    did_insert3 = query.insert(999, 3, 8, 3, 4, 5)
+    print("did_insert:" , did_insert)
+    print("did_insert2:" , did_insert2)
+    print("did_insert3:" , did_insert3)
+    print(query.table.num_records)
 
-# test_insert()
+#test_insert()
 
 def test_insert_and_see_if_exists():
     database = Database()
@@ -124,7 +130,12 @@ def test_insert_and_read_and_update():
     print('Select 2, col', sel_2[0].all_columns)
     
     print('END test_insert_and_read_and_update()')
-test_insert_and_read_and_update()
+    #test_insert_and_read_and_update()
+    print("did insert", did_insert)
+    ret = query.update(key, None, 0, 1, 2, 3, None)
+    print(ret)
+
+#test_insert_and_read_and_update()
     
 
 
