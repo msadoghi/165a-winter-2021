@@ -80,8 +80,8 @@ class Query:
         for i in range(len(query_columns)):
             if query_columns[i] == 1:
                 filtered_record_list.append(selected_record.user_data[i])
-            else: # skip past 0
-                continue
+            else: #0 specifies returning None in place of column value
+                filtered_record_list.append(None)
         selected_record.user_data = filtered_record_list
         return_list.append(selected_record)
         return return_list
