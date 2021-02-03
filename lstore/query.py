@@ -82,8 +82,8 @@ class Query:
                 filtered_record_list.append(selected_record.user_data[i])
             else: # skip past 0
                 continue
-        
-        return_list.append(filtered_record_list)
+        selected_record.user_data = filtered_record_list
+        return_list.append(selected_record)
         return return_list
 
     """
@@ -112,14 +112,14 @@ class Query:
             else:
                 schema_encoding_as_int = set_bit(value=schema_encoding_as_int, bit_index=i)
                 updated_user_data[i] = columns[i]
-        
+
+        print("updated_user_data",updated_user_data)
         # for i in range(len(columns)):
         #     print("Column num", i, get_bit(value=schema_encoding_as_int, bit_index=i))
         
         new_tail_record = Record(key=key, rid=validRID, schema_encoding=schema_encoding_as_int, column_values=updated_user_data)
         print("new_tail_col", new_tail_record.all_columns)
         did_successfully_update = self.table.update_record(record=new_tail_record, rid=validRID)
-        # TODO we need a new tid
         # change the indirection of the base page record to new update in tail page
         # change the tail page indirection to the SRMU
         if did_successfully_update:
@@ -136,9 +136,13 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
-        # Use index functions to sum all values specifed by aggrehate_column_index that fall between start_range and end_range
-        # Note that the MRU for the specified aggregate_column_index needs to be used in the sum, so make sure to check the schema encoding
-        pass
+        all_values = []
+        query_columns = [1 for i in range(self.table.num_columns)]
+        for i in range(start_range, end_range):
+            temp_record = self.select(key=i, column=aggregate_column_index, query_columns=query_columns)
+            all_values.append(temp_record[0].user_data[aggregate_column_index])
+        
+        return sum(all_values)
 
     """
     incremenets one column of the record

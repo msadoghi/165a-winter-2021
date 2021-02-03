@@ -8,10 +8,12 @@ def test_select():
     database.create_table("Students", 6, 0)
     table = database.get_table("Students")
     query = Query(table)
+    did_insert = query.insert(798329, 1, 2, 3, 4, 5)
     ret_record = query.select(798329, 0, [0, 1, 0, 1, 0, 1])
-    print(ret_record)
+    print(ret_record[0].user_data)
+    # print(ret_record)
 
-#test_select()
+# test_select()
 
 def test_insert():
     database = Database()
@@ -37,7 +39,7 @@ def test_insert_and_see_if_exists():
     print("ret_value:", ret_value)
     print("ret_value2:", ret_value2)
 
-#test_insert_and_see_if_exists()
+# test_insert_and_see_if_exists()
 
 def test_insert_and_delete_and_see_if_exists():
     database = Database()
