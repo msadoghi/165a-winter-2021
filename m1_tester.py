@@ -8,7 +8,7 @@ from colorama import Fore, Back, Style
 # Student Id and 4 grades
 init()
 db = Database()
-grades_table = db.create_table('Grades', 5, 0)
+grades_table = db.create_table('Grades', 0, 5)
 query = Query(grades_table)
 
 records = {}
