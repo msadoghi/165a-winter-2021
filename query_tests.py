@@ -89,16 +89,41 @@ def test_get_and_set_bit():
 # test_get_and_set_bit()
 
 def test_insert_and_read_and_update():
+    print('START test_insert_and_read_and_update()')
     database = Database()
     database.create_table("Students", 6, 0)
     table = database.get_table("Students")
     query = Query(table)
     key = 888887980
+    print('---- First Record -----')
     did_insert = query.insert(key, 1, 2, 3, 4, 5)
-    print("did insert", did_insert)
-    ret = query.update(key, None, 0, 1, 2, 3, None)
-    print(ret)
-
+    print('Inserted with [1, 2, 3, 4, 5]')
+    ret = query.update(key, None, 7, 8, 9, 10, None)
+    print('Updated with [None, 7, 8, 9, 10, None]')
+    ret_2 = query.select(key, 0, [1,1,1,1,1,1])
+    print('Return 2, col ', ret_2[0].all_columns)
+    ret_3 = query.update(key, None, 13, None, 20000, None, None)
+    print('Updated with [None, 13, None, 20000, None, None]')
+    ret_4 = query.select(key, 0, [1,1,1,1,1,1])
+    print('Return 4, col ', ret_4[0].all_columns)
+    ret_5 = query.update(key, None, 990907, 4, 36, 1800000000, 57)
+    print('Updated with [None, 990907, 4, 36, 1800000000, 57]')
+    ret_6 = query.select(key, 0, [1,1,1,1,1,1])
+    print('Return 6, col ', ret_6[0].all_columns)
+    print('---- Second Record -----')
+    key_2 = 888887981
+    inserted = query.insert(key_2, 10, 11, 12, 13, 14)
+    print('Inserted with [10, 11, 12, 13, 14]')
+    upd_1 = query.update(key_2, None, 20, 21, None, None, 24)
+    print('Updated with [20, 21, None, None, 24]')
+    sel_1 = query.select(key_2, 0, [1,1,1,1,1])
+    print('Select 1, col', sel_1[0].all_columns)
+    upd_2 = query.update(key_2, None, None, None, 32, 33, None)
+    print('Updated with [None, None, None, 32, 33, None]')
+    sel_2 = query.select(key_2, 0, [1,1,1,1,1])
+    print('Select 2, col', sel_2[0].all_columns)
+    
+    print('END test_insert_and_read_and_update()')
 test_insert_and_read_and_update()
     
 

@@ -95,31 +95,37 @@ class Query:
         # TODO : Discuss snapshots for future milestones
         # all updates will go to the tail page
         validRID = self.table.record_does_exist(key=key)
-        print("validRid", validRID)
+        # print("validRid", validRID)
         if validRID != 0 and validRID == False:
-            print("here")
+            # print("here")
             return False
         
         current_record = self.table.read_record(rid=validRID) # read record need to give the MRU
-        print("current_record", current_record.all_columns)
+        # print("current_record", current_record.all_columns)
         schema_encoding_as_int = deepcopy(current_record.all_columns[SCHEMA_ENCODING_COLUMN])
-        updated_user_data = deepcopy(current_record.user_data)
-        
+        current_record_data = deepcopy(current_record.user_data)
+        # print('schema as int ', schema_encoding_as_int)
         for i in range(len(columns)):
-            print("colummns[i]", columns[i])
-            if columns[i] == None:
-                continue
+            # print(f"colummns[i] {i}", columns[i])
+            if columns[i] == None: 
+                if not get_bit(value=schema_encoding_as_int, bit_index=i):
+                    # print(f'NOT @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
+                    current_record_data[i] = 0
+                else:
+                    # print(f' CON @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
+                    continue
             else:
+                # print(f'ELSE @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
                 schema_encoding_as_int = set_bit(value=schema_encoding_as_int, bit_index=i)
-                updated_user_data[i] = columns[i]
+                current_record_data[i] = columns[i]
 
-        print("updated_user_data",updated_user_data)
+        # print("updated_user_data",current_record_data)
         # for i in range(len(columns)):
         #     print("Column num", i, get_bit(value=schema_encoding_as_int, bit_index=i))
         
-        new_tail_record = Record(key=key, rid=validRID, schema_encoding=schema_encoding_as_int, column_values=updated_user_data)
-        print("new_tail_col", new_tail_record.all_columns)
-        did_successfully_update = self.table.update_record(record=new_tail_record, rid=validRID)
+        new_tail_record = Record(key=key, rid=validRID, schema_encoding=schema_encoding_as_int, column_values=current_record_data)
+        # print("new_tail_col", new_tail_record.all_columns)
+        did_successfully_update = self.table.update_record(updated_record=new_tail_record, rid=validRID)
         # change the indirection of the base page record to new update in tail page
         # change the tail page indirection to the SRMU
         if did_successfully_update:

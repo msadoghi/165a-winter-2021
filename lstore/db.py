@@ -20,7 +20,7 @@ class Database():
     :param num_columns: int     #Number of Columns: all columns are integer
     :param key: int             #Index of table key in columns
     """
-    def create_table(self, name, num_columns, key):
+    def create_table(self, name: str, num_columns: int, key: int) -> Table:
         table = Table(name, num_columns, key)
         self.tables[name] = table # TODO: check if name is best way to map
         return table
