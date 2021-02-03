@@ -1,7 +1,10 @@
-# from lstore.table import *
-from random import randint
-from lstore.config import *
 import math
+from random import randint
+
+from lstore.db import *
+from lstore.table import *
+from lstore.config import *
+
 
 def makeTable():
     '''
@@ -22,7 +25,7 @@ def makeTable():
                 # print(f'{column} : {column.data}\n')
                 print(f'            {column}\n')
 
-# makeTable()
+makeTable()
 
 def testInsert():
     records = {}
@@ -48,4 +51,42 @@ def __rid_to_page_location(rid: int) -> dict:
     physical_page_index = index % ENTRIES_PER_PAGE
     return { 'page_range': page_range_index, 'base_page': base_page_index, 'page_index': physical_page_index }
 
-print(__rid_to_page_location(2050))
+print(f'{__rid_to_page_location(2050)}\n')
+
+
+def test_database() -> None:
+    '''
+    Test to check DB table creation functionality
+    '''
+    print('----------- test_database -------------')
+    
+    # check DB and Table creation
+    test_db = Database()
+    test_table = test_db.create_table(name='Students', num_columns=2, key=0)
+
+    # Displaying general Table statistics
+    print(f'Table: {test_table}\n')
+    print(f'Table key : {test_table.key}\n')
+    print(f'Table name : {test_table.name}\n')
+    print(f'Table columns: {test_table.num_columns}\n')
+    print(f'Table records : {test_table.num_records}\n')
+    print(f'Table Page Ranges : {len(test_table.book)}\n')
+    table_bp = 0
+    for i in range(len(test_table.book)):
+        table_bp += len(test_table.book[i].pages)
+        print(f'PR_{i} Base Pages : {len(test_table.book[i].pages)}\n')
+    print(f'Table total Base Pages: {table_bp}\n')
+    print(f'Table column names: {[test_table.column_names.get(key) for key in test_table.column_names]}\n')
+    
+    # Add new Page Range
+    print('------ Page Range -----')
+    new_pr_key = test_table.create_new_page_range()
+    print(f'New PR key: {new_pr_key}')
+    table_bp_2 = 0
+    for i in range(len(test_table.book)):
+        table_bp_2 += len(test_table.book[i].pages)
+        print(f'PR_{i} Base Pages : {len(test_table.book[i].pages)}\n')
+    print(f'Table total Base Pages: {table_bp_2}\n')
+    pass
+
+test_database()

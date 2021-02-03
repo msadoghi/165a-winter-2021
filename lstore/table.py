@@ -2,6 +2,7 @@ from lstore.page import *
 from lstore.index import Index
 from lstore.config import *
 from lstore.record import *
+from lstore.helpers import *
 from time import time
 import math
 
@@ -309,7 +310,7 @@ class Table:
             # for each element in the indirection page column in the tail page
             for i in range(tail_page.columns_list[INDIRECTION]):
                 # if there is no data the record is open
-                if tail_page.columns_list[INDIRECTION].read[i] is 0:   # TODO: look at different value maybe, how do we want oldest update to look?
+                if tail_page.columns_list[INDIRECTION].read[i] == 0:   # TODO: look at different value maybe, how do we want oldest update to look?
                     # return the index to insert the update
                     return { 'tail_page': tp, 'tail_page_index': i }
         tp += 1
@@ -359,6 +360,8 @@ class Table:
         bp = write_location.get('base_page')
         pi = write_location.get('page_index')
 
+        # TODO: Data validation prio to write
+
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
             self.book[pr].pages[bp].columns_list[i].write(value, pi)
@@ -370,12 +373,12 @@ class Table:
         '''
         This function takes a Record and a RID and finds the appropriate place to write the record and writes it
         '''
-
+        # print('--- UPDATING ---')
         rid_info = self.page_directory.get(rid)
         pr = rid_info.get('page_range')
         bp = rid_info.get('base_page')
         pp_index = rid_info.get('page_index')
-
+        
         old_tid = self.book[pr].pages[bp].columns_list[INDIRECTION].read(pp_index)
 
         new_tid = self.book[pr].pages[bp].new_tid()
@@ -384,54 +387,84 @@ class Table:
         new_tp = new_tid_dict.get('tail_page')
         new_pp_index = new_tid_dict.get('page_index')
 
+        # print(f'pr = {pr} bp = {bp} pp_index = {pp_index} old_tid = {old_tid} new_tid = {new_tid} new_tid_dict = {new_tid_dict}')
+        
         updated_record.all_columns[INDIRECTION] = old_tid
         updated_record.all_columns[RID_COLUMN] = new_tid
 
+        # print(f'new_tp = {new_tp} new_pp_index = {new_pp_index}')
+        # TODO: Data validation prior to write
+    
         for i in range(len(updated_record.all_columns)):
+            # print(f'@ i = {i}; all_columns[{i}] = {updated_record.all_columns[i]}')
             value = updated_record.all_columns[i]
             self.book[pr].pages[bp].tail_page_list[new_tp].columns_list[i].write(value, new_pp_index)
+            # print(f'read = {self.book[pr].pages[bp].tail_page_list[new_tp].columns_list[i].read(new_pp_index)}')
         
         updated_schema = updated_record.all_columns[SCHEMA_ENCODING_COLUMN]
+        # print(f'updated_schema = {updated_schema}')
         self.book[pr].pages[bp].columns_list[INDIRECTION].write(new_tid, pp_index)
+        # print(f'read new_tid = {self.book[pr].pages[bp].columns_list[INDIRECTION].read(pp_index)}')
         self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].write(updated_schema, pp_index)
+        # print(f'read updated_schema = {self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].read(pp_index)}')
 
+        # print('----- EXITING UPDATE ------')
         return True
 
 
-    def read_record(self, rid, full_record: bool):
+    def read_record(self, rid) -> Record:
         '''
-        1. get base page location from the rid
-        2. get schema data for the pbase record
-        3. if the schema encoding is all 0s then no updates
-            * read record from base page
-        4. If there is a single 1 in the schema get the column data for those columns from the MRU,
-            all 0's in schema get column data from the base page
-        5. return constructed record 
+        :param rid: int             RID of the record being read
+        :return Record: Record      Returns the MRU Record associated with the ris
 
         '''
-        record_info = self.page_directory[rid]
+        # print('**** Reading Record *****')
+        record_info = self.page_directory.get(rid)
         #check if updated value is false
         pg_range = record_info.get("page_range")
         bs_page = record_info.get("base_page")
         pg_index = record_info.get("page_index")
         all_entries = []
         
-        schema = self.book[pg_range].pages[bs_page].columns_list[SCHEMA_ENCODING_COLUMN].read(pg_index)
+        indirection_tid = self.book[pg_range].pages[bs_page].columns_list[INDIRECTION].read(pg_index)
 
+        # print(f'pg_range = {pg_range} bs_page = {bs_page} pg_index = {pg_index}')
+        # print(f'indirection_tid = {indirection_tid}')
 
-        if not schema:
-            for col in range(self.num_columns + META_COLUMN_COUNT):
-                entry = self.book[pg_range].pages[bs_page].columns_list[col].read(pg_index)
-                all_entries.append(entry)
-            key = all_entries[KEY_COLUMN]
-            schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
-            user_cols = all_entries[KEY_COLUMN: ]
-            new_record = Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
-        else:
-            # go bit by bit
+        for col in range(self.num_columns + META_COLUMN_COUNT):
+            entry = self.book[pg_range].pages[bs_page].columns_list[col].read(pg_index)
+            # print(f'Entry at col {col} = {entry}')
+            all_entries.append(entry)
+        key = all_entries[KEY_COLUMN]
+        schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
+        user_cols = all_entries[KEY_COLUMN: ]
+        # print(f'key = {key} schema_encode = {schema_encode} user_cols = {user_cols}')
         
-        return new_record
+        if not schema_encode:
+            # print('NOT SCHEMA')
+            return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
+        else:
+            # print('SCHEMA')
+            ind_dict = self.book[pg_range].pages[bs_page].tail_page_directory.get(indirection_tid)
+            tail_page = ind_dict.get('tail_page')
+            tp_index = ind_dict.get('page_index')
+            column_update_indices = []
+            # print(f'ind_dict = {ind_dict} tail_page = {tail_page} tp_index = {tp_index}')
+
+            for i in range(KEY_COLUMN, self.num_columns + META_COLUMN_COUNT):
+                # print(f'@ i = {i}')
+                if get_bit(schema_encode, i - META_COLUMN_COUNT):
+                    # print(f'APPEND')
+                    column_update_indices.append(i)
             
+            # print(f'column_update_indices = {column_update_indices}')
+            for index in column_update_indices:
+                user_cols[index - META_COLUMN_COUNT] = self.book[pg_range].pages[bs_page].tail_page_list[tail_page].columns_list[index].read(tp_index)
+            # print(f'user_cols = {user_cols}')
+
+        # print(f'**** RETURNING READ *****')
+        return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
+    
     
     # returns rid if found else False
     def record_does_exist(self, key):
