@@ -112,7 +112,8 @@ class Query:
             else:
                 schema_encoding_as_int = set_bit(value=schema_encoding_as_int, bit_index=i)
                 updated_user_data[i] = columns[i]
-        
+
+        print("updated_user_data",updated_user_data)
         # for i in range(len(columns)):
         #     print("Column num", i, get_bit(value=schema_encoding_as_int, bit_index=i))
         
