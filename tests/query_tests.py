@@ -77,16 +77,16 @@ THESE TESTS FAIL
 
 query.insert(*[5,2,3,4,5,6])
 # this updates the key of a record
-query.update(5,*[69, None, None, None, None, None])
+did_update = query.update(5,*[69, None, None, None, None, None])
 ret_record = query.select(5,0,[1, 1, 1, 1, 1, 1])
-test('try to find record 5 after its key has been updated',
-    ret_record[0].user_data,
-    [69, 2, 3, 4, 5, 6])
+test('check that record 5 did not successfully update the primary key',
+    did_update,
+    False)
 
 ret_record = query.select(69,0,[1, 1, 1, 1, 1, 1])
-test('try to find record 69 (previously record 5) after its been updated a second time',
-    ret_record[0].user_data,
-    [69, 2, 3, 4, 5, 6])
+test('try to find record 69 which should not exist if update failed',
+    ret_record,
+    False)
 
 
 
