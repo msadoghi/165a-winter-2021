@@ -96,7 +96,7 @@ class Query:
             return False
 
         selected_record = self.table.read_record(rid=valid_rid)
-        print("SCHEMA 2", selected_record.meta_data[SCHEMA_ENCODING_COLUMN])
+        # print("SCHEMA 2", selected_record.meta_data[SCHEMA_ENCODING_COLUMN])
         if selected_record == False:
             return False
 
@@ -153,7 +153,7 @@ class Query:
         
         new_tail_record = Record(key=key, rid=valid_rid, schema_encoding=schema_encoding_as_int, column_values=current_record_data)
         # print("new_tail_col", new_tail_record.all_columns)
-        print("schema", schema_encoding_as_int)
+        # print("query.update: schema =", schema_encoding_as_int)
         did_successfully_update = self.table.update_record(updated_record=new_tail_record, rid=valid_rid)
 
         if did_successfully_update:

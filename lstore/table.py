@@ -5,6 +5,9 @@ from lstore.record import *
 from lstore.helpers import *
 from time import time
 import math
+from inspect import currentframe, getframeinfo
+
+frameinfo = getframeinfo(currentframe())
 
 '''
               *** Table Diagram ***
@@ -402,10 +405,12 @@ class Table:
             # print(f'read = {self.book[pr].pages[bp].tail_page_list[new_tp].columns_list[i].read(new_pp_index)}')
         
         updated_schema = updated_record.all_columns[SCHEMA_ENCODING_COLUMN]
-        print(f'updated_schema = {updated_schema}')
-        self.book[pr].pages[bp].columns_list[INDIRECTION].write(new_tid, pp_index)
+        # print(f'updated_schema = {updated_schema}')
+        wrote_ind = self.book[pr].pages[bp].columns_list[INDIRECTION].write(value=new_tid, row=pp_index)
+        # print(f'wrote_ind = {wrote_ind}')
         # print(f'read new_tid = {self.book[pr].pages[bp].columns_list[INDIRECTION].read(pp_index)}')
-        self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].write(updated_schema, pp_index)
+        wrote_schema = self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].write(value=updated_schema, row=pp_index)
+        # print(f'wrote_schema = {wrote_schema}')
         # print(f'read updated_schema = {self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].read(pp_index)}')
 
         # print('----- EXITING UPDATE ------')
@@ -439,8 +444,9 @@ class Table:
         schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
         user_cols = all_entries[KEY_COLUMN: ]
         # print(f'key = {key} schema_encode = {schema_encode} user_cols = {user_cols}')
-        print("schema encoding shouldn't be zero:", schema_encode)
+
         if not schema_encode:
+            # print('NOT SCHEMA')
             return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
         else:
             # print('SCHEMA')
