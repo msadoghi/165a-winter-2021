@@ -32,19 +32,14 @@ for key in records:
         print('select on', key, ':', record)
 
 for key in records:
-    # print('************** M1_tester: NEW KEY')
     updated_columns = [None, None, None, None, None]
     for i in range(1, grades_table.num_columns):
-        # print(f'************** M1_tester: NEW COLUMN: {i}')
         value = randint(0, 20)
         updated_columns[i] = value
         original = records[key].copy()
         records[key][i] = value
-        # print(f'*** M1_tester: updating with {updated_columns}')
         did_update = query.update(key, *updated_columns)
-        # print("did_update", did_update)
         record = query.select(key, 0, [1, 1, 1, 1, 1])[0]
-        # print("record", record.all_columns)
         error = False
         for j, column in enumerate(record.user_data):
             if column != records[key][j]:
@@ -55,13 +50,13 @@ for key in records:
             print('update on', original, 'and', updated_columns, ':', record)
         updated_columns[i] = None
 
-# keys = sorted(list(records.keys()))
-# for c in range(0, grades_table.num_columns):
-#     for i in range(0, 20):
-#         r = sorted(sample(range(0, len(keys)), 2))
-#         column_sum = sum(map(lambda key: records[key][c], keys[r[0]: r[1] + 1]))
-#         result = query.sum(keys[r[0]], keys[r[1]], c)
-#         if column_sum != result:
-#             print('sum error on [', keys[r[0]], ',', keys[r[1]], ']: ', result, ', correct: ', column_sum)
-#         else:
-#             print('sum on [', keys[r[0]], ',', keys[r[1]], ']: ', column_sum)
+keys = sorted(list(records.keys()))
+for c in range(0, grades_table.num_columns):
+    for i in range(0, 20):
+        r = sorted(sample(range(0, len(keys)), 2))
+        column_sum = sum(map(lambda key: records[key][c], keys[r[0]: r[1] + 1]))
+        result = query.sum(keys[r[0]], keys[r[1]], c)
+        if column_sum != result:
+            print('sum error on [', keys[r[0]], ',', keys[r[1]], ']: ', result, ', correct: ', column_sum)
+        else:
+            print('sum on [', keys[r[0]], ',', keys[r[1]], ']: ', column_sum)
