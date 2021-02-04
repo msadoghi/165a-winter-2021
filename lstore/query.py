@@ -4,6 +4,7 @@ from lstore.record import Record
 from lstore.config import *
 from lstore.helpers import *
 from copy import deepcopy
+from math import ceil
 
 class Query:
     """
@@ -15,11 +16,10 @@ class Query:
 
     def __init__(self, table):
         self.table = table
-        pass
 
     """
     # internal Method
-    # Read a record with specified RID
+    # Read a record with specified key
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
@@ -27,7 +27,7 @@ class Query:
     def delete(self, key):
 
         rid = self.table.record_does_exist(key)
-        if rid != 0 and rid == False: #check for when rid is 0
+        if rid == None:
             return False
         
         # Update delete value to true in page directory
@@ -39,19 +39,37 @@ class Query:
     # Return True upon succesful insertion
     # Returns False if insert fails for whatever reason
     """
+    def _check_values_are_valid(self, list_of_values) -> bool:
+        for val in list_of_values:
+            if val < 0:
+                return False
+            elif ceil(val.bit_length() / 8.0) >= 8:
+                return False
+            elif not isinstance(val, int):
+                return False
+            else:
+                continue
+
+        return True       
+            
     def insert(self, *columns):
-        blank_schema_encoding = 0
-        new_rid = self.table.new_rid()
         unique_identifier = columns[0]
         columns_list = list(columns)
+        if len(columns_list) != self.table.num_columns:
+            return False
+        if not self._check_values_are_valid(columns_list):
+            return False
+        if self.table.record_does_exist(key=unique_identifier) != None:
+            return False
+
+        blank_schema_encoding = 0
+        new_rid = self.table.new_rid()
         new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=blank_schema_encoding, column_values=columns_list)
-        print("new_record", new_record.all_columns)
         did_successfully_write = self.table.write_new_record(record=new_record, rid=new_rid)
 
         if did_successfully_write:
             return True
         else:
-            # In the future : if a commit fails, we can try a second time
             return False
 
     """
@@ -65,13 +83,20 @@ class Query:
     # Tests: query_tests.py
     """
     def select(self, key, column, query_columns):
+        if column > self.table.num_columns or column < 0:
+            return False
+        if len(query_columns) != self.table.num_columns:
+            return False
         for value in query_columns:
             if value != 0 and value != 1:
-                raise ValueError('ERROR: query_columns list must contain 0 or 1 values.')
+                return False
 
-        validRID = self.table.record_does_exist(key=key)
-        selected_record = self.table.read_record(rid=validRID)
+        valid_rid = self.table.record_does_exist(key=key)
+        if valid_rid == None:
+            return False
 
+        selected_record = self.table.read_record(rid=valid_rid)
+        print("SCHEMA 2", selected_record.meta_data[SCHEMA_ENCODING_COLUMN])
         if selected_record == False:
             return False
 
@@ -80,7 +105,7 @@ class Query:
         for i in range(len(query_columns)):
             if query_columns[i] == 1:
                 filtered_record_list.append(selected_record.user_data[i])
-            else: #0 specifies returning None in place of column value
+            else: # 0 specifies returning None in place of column value
                 filtered_record_list.append(None)
         selected_record.user_data = filtered_record_list
         return_list.append(selected_record)
@@ -94,21 +119,24 @@ class Query:
     def update(self, key, *columns):
         # TODO : Discuss snapshots for future milestones
         # all updates will go to the tail page
-        validRID = self.table.record_does_exist(key=key)
-        # print("validRid", validRID)
-        if validRID != 0 and validRID == False:
-            # print("here")
+
+        columns_list = list(columns)
+        if len(columns_list) != self.table.num_columns:
+            return False
+
+        valid_rid = self.table.record_does_exist(key=key)
+        if valid_rid == None:
             return False
         
-        current_record = self.table.read_record(rid=validRID) # read record need to give the MRU
+        current_record = self.table.read_record(rid=valid_rid) # read record need to give the MRU
         # print("current_record", current_record.all_columns)
-        schema_encoding_as_int = deepcopy(current_record.all_columns[SCHEMA_ENCODING_COLUMN])
-        current_record_data = deepcopy(current_record.user_data)
+        schema_encoding_as_int = current_record.all_columns[SCHEMA_ENCODING_COLUMN]
+        current_record_data = current_record.user_data
         # print('schema as int ', schema_encoding_as_int)
         for i in range(len(columns)):
             # print(f"colummns[i] {i}", columns[i])
             if columns[i] == None: 
-                if not get_bit(value=schema_encoding_as_int, bit_index=i):
+                if not get_bit(value=schema_encoding_as_int, bit_index=i): # bit is 0, never been updated before, most updated entry is in base pages
                     # print(f'NOT @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
                     current_record_data[i] = 0
                 else:
@@ -123,11 +151,11 @@ class Query:
         # for i in range(len(columns)):
         #     print("Column num", i, get_bit(value=schema_encoding_as_int, bit_index=i))
         
-        new_tail_record = Record(key=key, rid=validRID, schema_encoding=schema_encoding_as_int, column_values=current_record_data)
+        new_tail_record = Record(key=key, rid=valid_rid, schema_encoding=schema_encoding_as_int, column_values=current_record_data)
         # print("new_tail_col", new_tail_record.all_columns)
-        did_successfully_update = self.table.update_record(updated_record=new_tail_record, rid=validRID)
-        # change the indirection of the base page record to new update in tail page
-        # change the tail page indirection to the SRMU
+        print("schema", schema_encoding_as_int)
+        did_successfully_update = self.table.update_record(updated_record=new_tail_record, rid=valid_rid)
+
         if did_successfully_update:
             return True
         else:
@@ -143,9 +171,11 @@ class Query:
     """
     def sum(self, start_range, end_range, aggregate_column_index):
         all_values = []
-        query_columns = [1 for i in range(self.table.num_columns)]
+        query_columns = [0 for i in range(self.table.num_columns)]
+        query_columns[aggregate_column_index] = 1
+        
         for i in range(start_range, end_range):
-            temp_record = self.select(key=i, column=aggregate_column_index, query_columns=query_columns)
+            temp_record = self.select(key=i, column=0, query_columns=query_columns)
             all_values.append(temp_record[0].user_data[aggregate_column_index])
         
         return sum(all_values)

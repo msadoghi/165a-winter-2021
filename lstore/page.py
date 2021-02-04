@@ -21,9 +21,7 @@ class Page:
             raise ValueError('ERROR: current_empty_space must be greater or equal to zero.')
 
     def write(self, value, row) -> bool:
-        if ceil(value.bit_length() / 8.0) >= 8: # value is too big
-            return False
-        elif (not self.has_capacity()): # physical page is out of space
+        if not self.has_capacity(): # physical page is out of space
             return False
         elif row > ENTRIES_PER_PAGE: # row number is larger than 511
             return False

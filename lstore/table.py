@@ -402,7 +402,7 @@ class Table:
             # print(f'read = {self.book[pr].pages[bp].tail_page_list[new_tp].columns_list[i].read(new_pp_index)}')
         
         updated_schema = updated_record.all_columns[SCHEMA_ENCODING_COLUMN]
-        # print(f'updated_schema = {updated_schema}')
+        print(f'updated_schema = {updated_schema}')
         self.book[pr].pages[bp].columns_list[INDIRECTION].write(new_tid, pp_index)
         # print(f'read new_tid = {self.book[pr].pages[bp].columns_list[INDIRECTION].read(pp_index)}')
         self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].write(updated_schema, pp_index)
@@ -439,9 +439,8 @@ class Table:
         schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
         user_cols = all_entries[KEY_COLUMN: ]
         # print(f'key = {key} schema_encode = {schema_encode} user_cols = {user_cols}')
-        
+        print("schema encoding shouldn't be zero:", schema_encode)
         if not schema_encode:
-            # print('NOT SCHEMA')
             return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
         else:
             # print('SCHEMA')
@@ -471,7 +470,7 @@ class Table:
         # get record to find the rid assocated with the key
         last_record = self.__rid_to_page_location(self.num_records)
         last_base_page = last_record.get("base_page")
-        found_rid = False
+        found_rid = None
         current_base_page = 0
         for page_range in self.book: # for each page range
             for base_page in page_range.pages: # for each base page (0-15)
@@ -482,7 +481,7 @@ class Table:
                     if entry_value == key:
                         found_rid = rid_column.read(i)
                         if self.page_directory[found_rid]["deleted"]:
-                            found_rid = False
+                            found_rid = None
                             return found_rid
                         else:
                             return found_rid
