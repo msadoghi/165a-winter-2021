@@ -47,8 +47,8 @@ class Query:
             return False
         if not self._check_values_are_valid(columns_list):
             return False
-        if self.table.record_does_exist(key=unique_identifier) != None:
-            return False
+        # if self.table.record_does_exist(key=unique_identifier) != None:
+        #     return False
 
         # New record passed the checks, set schema encoding to 0, create a new record, and write to the table
         blank_schema_encoding = 0

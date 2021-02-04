@@ -474,8 +474,9 @@ class Table:
     # returns rid if found else False
     def record_does_exist(self, key):
         # get record to find the rid assocated with the key
-        last_record = self.__rid_to_page_location(self.num_records)
+        last_record = self.__rid_to_page_location(self.num_records-1)
         last_base_page = last_record.get("base_page")
+        last_index = last_record.get("page_index")
         found_rid = None
         current_base_page = 0
         for page_range in self.book: # for each page range
@@ -491,9 +492,11 @@ class Table:
                             return found_rid
                         else:
                             return found_rid
-            current_base_page += 1
-            if current_base_page > last_base_page:
-                return found_rid
+                    
+                    if current_base_page == last_base_page:
+                        if last_index > i:
+                            return found_rid
+                current_base_page += 1
         
         return found_rid
 
