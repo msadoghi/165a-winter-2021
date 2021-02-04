@@ -146,20 +146,10 @@ class Query:
                 # print(f'ELSE @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
                 schema_encoding_as_int = set_bit(value=schema_encoding_as_int, bit_index=i)
                 current_record_data[i] = columns[i]
-
-        # print("updated_user_data",current_record_data)
-        # for i in range(len(columns)):
-        #     print("Column num", i, get_bit(value=schema_encoding_as_int, bit_index=i))
         
         new_tail_record = Record(key=key, rid=valid_rid, schema_encoding=schema_encoding_as_int, column_values=current_record_data)
-        # print("new_tail_col", new_tail_record.all_columns)
-        # print("query.update: schema =", schema_encoding_as_int)
-        did_successfully_update = self.table.update_record(updated_record=new_tail_record, rid=valid_rid)
 
-        if did_successfully_update:
-            return True
-        else:
-            return False
+        return self.table.update_record(updated_record=new_tail_record, rid=valid_rid)
 
     """
     :param start_range: int         # Start of the key range to aggregate 
@@ -170,15 +160,27 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
-        all_values = []
-        query_columns = [0 for i in range(self.table.num_columns)]
-        query_columns[aggregate_column_index] = 1
+        sum = 0
+        record_found = False
+        for pr in self.table.book:
+            # for every base page in the page range
+            for bp in pr.pages:
+                # for every value in the KEY_COLUMN of the base page
+                for i in range(ENTRIES_PER_PAGE):
+                    key = bp.columns_list[KEY_COLUMN].read(i)
+                    # If the key is between start_range and end_range inclusively,
+                    # read the record and sum at the aggregate_column_index
+                    if key >= start_range and key <= end_range:
+                        rid = bp.columns_list[RID_COLUMN].read(i)
+                        record = self.table.read_record(rid)
+                        data_columns = record.user_data
+                        sum += data_columns[aggregate_column_index]
+                        record_found = True
         
-        for i in range(start_range, end_range):
-            temp_record = self.select(key=i, column=0, query_columns=query_columns)
-            all_values.append(temp_record[0].user_data[aggregate_column_index])
+        if not record_found:
+            return False
         
-        return sum(all_values)
+        return sum
 
     """
     incremenets one column of the record

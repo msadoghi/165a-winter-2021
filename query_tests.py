@@ -13,7 +13,7 @@ def test_select():
     print(ret_record[0].user_data)
     # print(ret_record)
 
-# test_select()
+test_select()
 
 def test_insert():
     database = Database()
@@ -31,7 +31,7 @@ def test_insert():
     print("did_insert4:" , did_insert4)
     print(query.table.num_records)
 
-# test_insert()
+test_insert()
 
 def test_insert_and_see_if_exists():
     database = Database()
@@ -48,7 +48,7 @@ def test_insert_and_see_if_exists():
     print("ret_value:", ret_value)
     print("ret_value2:", ret_value2)
 
-# test_insert_and_see_if_exists()
+test_insert_and_see_if_exists()
 
 def test_insert_and_delete_and_see_if_exists():
     database = Database()
@@ -69,7 +69,7 @@ def test_insert_and_delete_and_see_if_exists():
     print("ret_value:", ret_value)
     print("ret_value2:", ret_value2)
 
-#test_insert_and_delete_and_see_if_exists()
+test_insert_and_delete_and_see_if_exists()
 
 def test_insert_and_read():
     database = Database()
@@ -82,7 +82,7 @@ def test_insert_and_read():
     did_read = table.read_record(validRID)
     print("did_read:", did_read.all_columns)
 
-# test_insert_and_read()
+test_insert_and_read()
 
 def test_get_and_set_bit():
     zero = 0
@@ -95,7 +95,7 @@ def test_get_and_set_bit():
     getBit = get_bit(value=setBit, bit_index=7)
     print("get 2", getBit)
 
-# test_get_and_set_bit()
+test_get_and_set_bit()
 
 def test_insert_and_read_and_update():
     print('START test_insert_and_read_and_update()')
@@ -149,7 +149,7 @@ def test_insert_and_read_and_update():
     ret = query.update(key, None, 0, 1, 2, 3, None)
     print(ret)
 
-# test_insert_and_read_and_update()
+test_insert_and_read_and_update()
 
 def test_insert_and_read_and_update2():
     print('START test_insert_and_read_and_update()')
@@ -168,7 +168,8 @@ def test_insert_and_read_and_update2():
     did_select = query.select(key, 0, [1, 1, 1, 1, 1, 1])
     print(did_select[0].all_columns)
 
-# test_insert_and_read_and_update2()
+test_insert_and_read_and_update2()
+
 database = Database()
 database.create_table("Students", 6, 0)
 table = database.get_table("Students")
