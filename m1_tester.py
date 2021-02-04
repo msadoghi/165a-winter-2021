@@ -32,16 +32,19 @@ for key in records:
         print('select on', key, ':', record)
 
 for key in records:
+    # print('************** M1_tester: NEW KEY')
     updated_columns = [None, None, None, None, None]
     for i in range(1, grades_table.num_columns):
+        # print(f'************** M1_tester: NEW COLUMN: {i}')
         value = randint(0, 20)
         updated_columns[i] = value
         original = records[key].copy()
         records[key][i] = value
+        # print(f'*** M1_tester: updating with {updated_columns}')
         did_update = query.update(key, *updated_columns)
-        print("did_update", did_update)
+        # print("did_update", did_update)
         record = query.select(key, 0, [1, 1, 1, 1, 1])[0]
-        print("record", record.all_columns)
+        # print("record", record.all_columns)
         error = False
         for j, column in enumerate(record.user_data):
             if column != records[key][j]:
