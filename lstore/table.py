@@ -494,7 +494,7 @@ class Table:
                             return found_rid
                     
                     if current_base_page == last_base_page:
-                        if last_index > i:
+                        if i > last_index:
                             return found_rid
                 current_base_page += 1
         
