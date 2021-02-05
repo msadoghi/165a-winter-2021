@@ -84,15 +84,38 @@ class Base_page:
     :param key: int                  Holds the integer key of itself as it maps to the Parent Page_range list
     '''
     def __init__(self, num_columns: int, parent_key: int, bp_key: int):
-        # Create a starting Tail Page for updates
-        self.tail_page_list = [Tail_page(num_columns=num_columns, parent_key=bp_key, key=0)]
         # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
         self.columns_list = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
-        self.tail_page_directory = {}
-        self.tail_page_count = 1
-        self.num_tail_page_records = 0
         self.pr_key = parent_key
         self.key = bp_key
+    
+
+
+class Tail_page:
+    '''
+    :param columns_list: list       Stores a list of all Page objects for the Tail_page, these are the data columns
+    :param bp_key: int              Holds the integer key of the parent Base_page
+    '''
+    def __init__(self, num_columns: int, key: int):
+        self.key = key
+        # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
+        self.columns_list = [Page(column_num=i) for i in range(num_columns+ META_COLUMN_COUNT)]
+        
+    
+class Page_range:
+    '''
+    :param pages: list      Stores a list of all Base_page objects in the Page_range
+    :param table_key: int   Holds the integer key of the parent Table
+    :param key: int         Holds the integer key of the Page_range as it is mapped in the parent Table list
+    '''
+    def __init__(self, num_columns: int, parent_key: int, pr_key:int):
+        self.table_key = parent_key
+        self.key = pr_key
+        self.tail_page_count = 1
+        self.num_tail_page_records = 0
+        # Array of Base_pages based on Const.BASE_PAGE_COUNT
+        self.pages = [Base_page(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
+        self.tail_pages = [Tail_page(num_columns=num_columns, key=0)]
     
 
     def create_new_tail_page(self) -> int:
@@ -148,31 +171,6 @@ class Base_page:
         physical_page_index = tid % ENTRIES_PER_PAGE
 
         return { 'tail_page': tail_page_index, 'page_index': physical_page_index }
-        
-
-class Tail_page:
-    '''
-    :param columns_list: list       Stores a list of all Page objects for the Tail_page, these are the data columns
-    :param bp_key: int              Holds the integer key of the parent Base_page
-    '''
-    def __init__(self, num_columns: int, parent_key: int, key: int):
-        self.bp_key = parent_key
-        self.key = key
-        # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
-        self.columns_list = [Page(column_num=i) for i in range(num_columns+ META_COLUMN_COUNT)]
-        
-    
-class Page_range:
-    '''
-    :param pages: list      Stores a list of all Base_page objects in the Page_range
-    :param table_key: int   Holds the integer key of the parent Table
-    :param key: int         Holds the integer key of the Page_range as it is mapped in the parent Table list
-    '''
-    def __init__(self, num_columns: int, parent_key: int, pr_key:int):
-        self.table_key = parent_key
-        self.key = pr_key
-        # Array of Base_pages based on Const.BASE_PAGE_COUNT
-        self.pages = [Base_page(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
 
         
 class Table:
@@ -492,11 +490,10 @@ class Table:
                             return found_rid
                         else:
                             return found_rid
-                    
-                    if current_base_page == last_base_page:
-                        if i > last_index:
-                            return found_rid
+            
                 current_base_page += 1
+                if current_base_page > last_base_page:
+                    return found_rid
         
         return found_rid
 
