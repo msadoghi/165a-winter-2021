@@ -1,10 +1,12 @@
 from lstore.table import Table
+from lstore.bufferpool import *
 
 class Database():
 
     def __init__(self):
         # store tables in a dictionary
         self.tables = {}
+        self.bufferpool = Bufferpool()
         pass
 
     # Not required for milestone1
