@@ -52,7 +52,7 @@ class Query:
 
         # New record passed the checks, set schema encoding to 0, create a new record, and write to the table
         blank_schema_encoding = 0
-        new_rid = self.table.new_rid()
+        new_rid = self.table.new_base_rid()
         new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=blank_schema_encoding, column_values=columns_list)
         did_successfully_write = self.table.write_new_record(record=new_record, rid=new_rid)
 
@@ -165,9 +165,9 @@ class Query:
             return False
         sum = 0
         record_found = False
-        for pr in self.table.book:
+        for pr in self.table.page_ranges:
             # for every base page in the page range
-            for bp in pr.pages:
+            for bp in pr.base_pages:
                 # for every value in the KEY_COLUMN of the base page
                 for i in range(ENTRIES_PER_PAGE):
                     key = bp.columns_list[KEY_COLUMN].read(i)
