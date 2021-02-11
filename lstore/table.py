@@ -75,7 +75,7 @@ frameinfo = getframeinfo(currentframe())
 
 '''
 
-class Base_page:
+class BasePage:
     '''
     :param tail_page_list: list      Stores a list of all Tail_Page objects associated with the Base_page
     :param columns_list: list        Stores a list of all Page objects for the Base_page, these are the data columns
@@ -90,8 +90,7 @@ class Base_page:
         self.key = bp_key
     
 
-
-class Tail_page:
+class TailPage:
     '''
     :param columns_list: list       Stores a list of all Page objects for the Tail_page, these are the data columns
     :param bp_key: int              Holds the integer key of the parent Base_page
@@ -102,7 +101,7 @@ class Tail_page:
         self.columns_list = [Page(column_num=i) for i in range(num_columns+ META_COLUMN_COUNT)]
         
     
-class Page_range:
+class PageRange:
     '''
     :param pages: list      Stores a list of all Base_page objects in the Page_range
     :param table_key: int   Holds the integer key of the parent Table
@@ -110,68 +109,28 @@ class Page_range:
     '''
     def __init__(self, num_columns: int, parent_key: int, pr_key:int):
         self.table_key = parent_key
+        self.num_columns = num_columns
         self.key = pr_key
-        self.tail_page_count = 1
-        self.num_tail_page_records = 0
+        self.num_tail_pages = 1
+        self.num_tail_records = 0
         # Array of Base_pages based on Const.BASE_PAGE_COUNT
-        self.pages = [Base_page(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
-        self.tail_pages = [Tail_page(num_columns=num_columns, key=0)]
+        self.base_pages = [BasePage(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
+        self.tail_pages = [TailPage(num_columns=num_columns, key=0)]
     
 
     def create_new_tail_page(self) -> int:
         '''
-        This function creates a new Tail_page for a Base_page and returns its index for Base_page.tail_page_list
+        This function creates a new Tail_page for a PageRange and returns its index for Base_page.tail_page_list
         '''
 
         # length of a 0 - indexed list will return the appropriate index that the tail page will reside at 
-        # in Base_page.tail_page_list
-        tp_index = len(self.tail_page_list)
-        num_columns = len(self.columns_list) - META_COLUMN_COUNT
-        new_tail_page = Tail_page(num_columns=num_columns, parent_key=self.key, key=tp_index)
-        self.tail_page_list.append(new_tail_page)
+        # in PageRange.tail_pages
+        tp_index = len(self.tail_pages)
+        new_tail_page = TailPage(num_columns=self.num_columns, key=tp_index)
+        self.tail_pages.append(new_tail_page)
 
         return tp_index
     
-
-    def new_tid(self) -> int:
-        '''
-        Function that creates a new TID, increments the amount of records in the Base_page,
-        then creates a TID dict that is mapped in the BP tail_page_directory.
-        '''
-        tid = self.num_tail_page_records
-        self.num_tail_page_records += 1
-        self.tail_page_directory[tid] = self.__new_tid_dict(tid)
-
-        return tid
-
-
-    def __new_tid_dict(self, tid: int) -> dict:
-        '''
-        Helper function that returns a dict object holding values associated with a record's RID for use
-        in the Table page_directory. Values not relavent to a particular record should keep the None value.
-
-        :param tid: int             Integer value of the Tail Identification
-        :param tail_page: int       Integer value associated with the record's Tail_page index within the Base_page
-        :param page_index: int      Integer value associated with the record's Page index within the Tail_page
-        '''
-
-        tail_page_index = math.floor(tid / ENTRIES_PER_PAGE) 
-        physical_page_index = tid % ENTRIES_PER_PAGE
-
-        # Check if current page range has space for another record
-        if tail_page_index > len(self.tail_page_list)-1:
-            self.create_new_tail_page()
-        # print("tail_page", tail_page_index, "page_index", physical_page_index)
-        return { 'tail_page': tail_page_index, 'page_index': physical_page_index }
-
-
-    def __tid_to_page_location(self, tid: int) -> dict:
-
-        tail_page_index = math.floor(tid / ENTRIES_PER_PAGE) 
-        physical_page_index = tid % ENTRIES_PER_PAGE
-
-        return { 'tail_page': tail_page_index, 'page_index': physical_page_index }
-
         
 class Table:
     """
@@ -190,8 +149,10 @@ class Table:
         self.num_columns = num_columns
         self.page_directory = {}
         self.index = Index(self)
-        self.book = [Page_range(num_columns=num_columns, parent_key=key, pr_key=0)] # Initialize with a single Page_range
+        self.page_ranges = [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)] # Initialize with a single PageRange
         self.num_records = 0
+        self.num_base_records = 0
+        self.num_tail_records = 0
         self.column_names = { 
             0: 'Indirection',
             1: 'RID', 
@@ -204,19 +165,20 @@ class Table:
         pass
     
 
-    def new_rid(self) -> int:
+    def new_base_rid(self) -> int:
         '''
         Function that creates a new RID, increments the amount of records in the table,
         then creates a RID dict that is mapped in the Table page_directory.
         '''
         rid = self.num_records
         self.num_records += 1
-        self.page_directory[rid] = self.__new_rid_dict(rid)
+        self.page_directory[rid] = self.__new_base_rid_dict()
+        self.num_base_records += 1
 
         return rid
     
 
-    def __new_rid_dict(self, rid) -> dict:
+    def __new_base_rid_dict(self) -> dict:
         '''
         Helper function that returns a dict object holding values associated with a record's RID for use
         in the Table page_directory. Values not relavent to a particular record should keep the None value.
@@ -225,34 +187,76 @@ class Table:
         :param base_page: int       Integer value associated with the record's Base_page index within the Page_range
         :param base_index: int      Integer value associated with the record's Page index within the Base_page
         :param deleted: bool        Specifies whether the record was deleted
-        :param updated: bool        Determines whether we need to scan tail pages at all
         '''
-        page_range_index = math.floor(rid / ENTRIES_PER_PAGE_RANGE)
-        index = rid % ENTRIES_PER_PAGE_RANGE
+        relative_rid = self.num_base_records
+        page_range_index = math.floor(relative_rid / ENTRIES_PER_PAGE_RANGE)
+        index = relative_rid % ENTRIES_PER_PAGE_RANGE
         base_page_index = math.floor(index / ENTRIES_PER_PAGE)
         physical_page_index = index % ENTRIES_PER_PAGE
 
         # Check if current page range has space for another record
-        if page_range_index > len(self.book)-1:
+        if page_range_index > len(self.page_ranges)-1:
             self.create_new_page_range()
 
         record_info = {
             'page_range': page_range_index,
             'base_page': base_page_index,
             'page_index': physical_page_index,
-            'deleted': False
+            'deleted': False,
+            'is_base_record': True
         }
         
         return record_info
+    
+
+    def new_tail_rid(self, page_range_index: int) -> int:
+        '''
+        Function that creates a new TID, increments the amount of records in the Base_page,
+        then creates a TID dict that is mapped in the BP tail_page_directory.
+        '''
+        rid = self.num_records
+        self.num_records += 1
+        self.page_directory[rid] = self.__new_tail_rid_dict(page_range_index=page_range_index)
+        self.page_ranges[page_range_index].num_tail_records += 1
+        self.num_tail_records += 1
+
+        return rid
 
 
-    def __rid_to_page_location(self, rid: int) -> dict:
+    def __new_tail_rid_dict(self, page_range_index: int) -> dict:
+        '''
+        Helper function that returns a dict object holding values associated with a record's RID for use
+        in the Table page_directory. Values not relavent to a particular record should keep the None value.
+
+        :param tid: int             Integer value of the Tail Identification
+        :param tail_page: int       Integer value associated with the record's Tail_page index within the Base_page
+        :param page_index: int      Integer value associated with the record's Page index within the Tail_page
+        '''
+        relative_rid = self.page_ranges[page_range_index].num_tail_records
+        tail_page_index = math.floor(relative_rid / ENTRIES_PER_PAGE) 
+        physical_page_index = relative_rid % ENTRIES_PER_PAGE
+
+        # Check if current PageRange needs another TailPage allocated
+        if tail_page_index > len(self.page_ranges[page_range_index].tail_pages)-1:
+            self.page_ranges[page_range_index].create_new_tail_page()
+        
+        rid_dict = {
+            'page_range': page_range_index,
+            'tail_page': tail_page_index,
+            'page_index': physical_page_index,
+            'is_base_record': False
+        }
+
+        return rid_dict
+
+
+    def __get_last_base_page_record_location(self) -> dict:
         '''
         Helper function that returns a dict of the memory location for a given RID
         '''
-
-        page_range_index = math.floor(rid / ENTRIES_PER_PAGE_RANGE)
-        index = rid % ENTRIES_PER_PAGE_RANGE
+        
+        page_range_index = math.floor(self.num_base_records / ENTRIES_PER_PAGE_RANGE)
+        index = self.num_base_records % ENTRIES_PER_PAGE_RANGE
         base_page_index = math.floor(index / ENTRIES_PER_PAGE)
         physical_page_index = index % ENTRIES_PER_PAGE
 
@@ -289,18 +293,18 @@ class Table:
 
     def create_new_page_range(self) -> int:
         '''
-        This function creates a new Page_range for the Table and returns its key index for the Table.book list
+        This function creates a new PageRange for the Table and returns its key index for the Table.page_ranges list
         '''
         
-        # length of a 0 - indexed list will return the appropriate index that the pr will reside at in Table.book
-        pr_index = len(self.book)
-        new_page_range = Page_range(num_columns=self.num_columns, parent_key=self.key, pr_key= pr_index)
-        self.book.append(new_page_range)
+        # length of a 0 - indexed list will return the appropriate index that the pr will reside at in Table.page_ranges
+        pr_index = len(self.page_ranges)
+        new_page_range = PageRange(num_columns=self.num_columns, parent_key=self.key, pr_key= pr_index)
+        self.page_ranges.append(new_page_range)
 
         return pr_index
     
 
-    def __find_next_open_tail_record(self, base_page: Base_page) -> dict:
+    def __find_next_open_tail_record(self, base_page: BasePage) -> dict:
         '''
         finds the next available tail page record slot and returns a dict with the indices, 
         and creates a new tail page if needed
@@ -356,16 +360,14 @@ class Table:
         the rid value in the page_directory appropriately
         '''
 
-        write_location = self.page_directory[rid]
-        pr = write_location.get('page_range')
-        bp = write_location.get('base_page')
-        pi = write_location.get('page_index')
-
-        # TODO: Data validation prio to write
+        record_info = self.page_directory.get(rid)
+        pr = record_info.get('page_range')
+        bp = record_info.get('base_page')
+        pi = record_info.get('page_index')
 
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
-            self.book[pr].pages[bp].columns_list[i].write(value, pi)
+            self.page_ranges[pr].base_pages[bp].columns_list[i].write(value, pi)
 
         return True
 
@@ -374,40 +376,41 @@ class Table:
         '''
         This function takes a Record and a RID and finds the appropriate place to write the record and writes it
         '''
+
         # print('--- UPDATING ---')
         rid_info = self.page_directory.get(rid)
         pr = rid_info.get('page_range')
         bp = rid_info.get('base_page')
         pp_index = rid_info.get('page_index')
         
-        old_tid = self.book[pr].pages[bp].columns_list[INDIRECTION].read(pp_index)
+        old_indirection_rid = self.page_ranges[pr].base_pages[bp].columns_list[INDIRECTION].read(pp_index)
 
-        new_tid = self.book[pr].pages[bp].new_tid()
-        new_tid_dict = self.book[pr].pages[bp].tail_page_directory.get(new_tid)
+        new_update_rid = self.new_tail_rid(page_range_index=pr)
+        new_rid_dict = self.page_directory.get(new_update_rid)
 
-        new_tp = new_tid_dict.get('tail_page')
-        new_pp_index = new_tid_dict.get('page_index')
+        new_pr = new_rid_dict.get('page_range')
+        new_tp = new_rid_dict.get('tail_page')
+        new_pp_index = new_rid_dict.get('page_index')
 
         # print(f'pr = {pr} bp = {bp} pp_index = {pp_index} old_tid = {old_tid} new_tid = {new_tid} new_tid_dict = {new_tid_dict}')
         
-        updated_record.all_columns[INDIRECTION] = old_tid
-        updated_record.all_columns[RID_COLUMN] = new_tid
+        updated_record.all_columns[INDIRECTION] = old_indirection_rid
+        updated_record.all_columns[RID_COLUMN] = new_update_rid
 
         # print(f'new_tp = {new_tp} new_pp_index = {new_pp_index}')
-        # TODO: Data validation prior to write
     
         for i in range(len(updated_record.all_columns)):
             # print(f'@ i = {i}; all_columns[{i}] = {updated_record.all_columns[i]}')
             value = updated_record.all_columns[i]
-            self.book[pr].pages[bp].tail_page_list[new_tp].columns_list[i].write(value, new_pp_index)
+            self.page_ranges[new_pr].tail_pages[new_tp].columns_list[i].write(value, new_pp_index)
             # print(f'read = {self.book[pr].pages[bp].tail_page_list[new_tp].columns_list[i].read(new_pp_index)}')
         
         updated_schema = updated_record.all_columns[SCHEMA_ENCODING_COLUMN]
         # print(f'updated_schema = {updated_schema}')
-        wrote_ind = self.book[pr].pages[bp].columns_list[INDIRECTION].write(value=new_tid, row=pp_index)
+        wrote_ind = self.page_ranges[pr].base_pages[bp].columns_list[INDIRECTION].write(value=new_update_rid, row=pp_index)
         # print(f'wrote_ind = {wrote_ind}')
         # print(f'read new_tid = {self.book[pr].pages[bp].columns_list[INDIRECTION].read(pp_index)}')
-        wrote_schema = self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].write(value=updated_schema, row=pp_index)
+        wrote_schema = self.page_ranges[pr].base_pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].write(value=updated_schema, row=pp_index)
         # print(f'wrote_schema = {wrote_schema}')
         # print(f'read updated_schema = {self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].read(pp_index)}')
 
@@ -424,18 +427,18 @@ class Table:
         # print('**** Reading Record *****')
         record_info = self.page_directory.get(rid)
         #check if updated value is false
-        pg_range = record_info.get("page_range")
-        bs_page = record_info.get("base_page")
-        pg_index = record_info.get("page_index")
+        pg = record_info.get("page_range")
+        bs = record_info.get("base_page")
+        pp_index = record_info.get("page_index")
         all_entries = []
         
-        indirection_tid = self.book[pg_range].pages[bs_page].columns_list[INDIRECTION].read(pg_index)
+        indirection_rid = self.page_ranges[pg].base_pages[bs].columns_list[INDIRECTION].read(pp_index)
 
         # print(f'pg_range = {pg_range} bs_page = {bs_page} pg_index = {pg_index}')
         # print(f'indirection_tid = {indirection_tid}')
 
         for col in range(self.num_columns + META_COLUMN_COUNT):
-            entry = self.book[pg_range].pages[bs_page].columns_list[col].read(pg_index)
+            entry = self.page_ranges[pg].base_pages[bs].columns_list[col].read(pp_index)
             # print(f'Entry at col {col} = {entry}')
             all_entries.append(entry)
         key = all_entries[KEY_COLUMN]
@@ -448,7 +451,7 @@ class Table:
             return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
         else:
             # print('SCHEMA')
-            ind_dict = self.book[pg_range].pages[bs_page].tail_page_directory.get(indirection_tid)
+            ind_dict = self.page_directory.get(indirection_rid)
             tail_page = ind_dict.get('tail_page')
             tp_index = ind_dict.get('page_index')
             column_update_indices = []
@@ -462,28 +465,35 @@ class Table:
             
             # print(f'column_update_indices = {column_update_indices}')
             for index in column_update_indices:
-                user_cols[index - META_COLUMN_COUNT] = self.book[pg_range].pages[bs_page].tail_page_list[tail_page].columns_list[index].read(tp_index)
+                user_cols[index - META_COLUMN_COUNT] = self.page_ranges[pg].tail_pages[tail_page].columns_list[index].read(tp_index)
             # print(f'user_cols = {user_cols}')
 
         # print(f'**** RETURNING READ *****')
         return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
-    
-    
-    # returns rid if found else False
+
+
     def record_does_exist(self, key):
+        '''
+        Function returns RID of the an associated key if it exists and None otherwise
+        '''
+
         # get record to find the rid assocated with the key
-        last_record = self.__rid_to_page_location(self.num_records-1)
-        last_base_page = last_record.get("base_page")
-        last_index = last_record.get("page_index")
+        last_record_info = self.__get_last_base_page_record_location()
+        last_base_page = last_record_info.get("base_page")
         found_rid = None
         current_base_page = 0
-        for page_range in self.book: # for each page range
-            for base_page in page_range.pages: # for each base page (0-15)
+
+        for page_range in self.page_ranges: # for each page range
+            
+            for base_page in page_range.base_pages: # for each base page (0-15)
+                
                 key_column = base_page.columns_list[KEY_COLUMN]
-                rid_column = base_page.columns_list[RID_COLUMN]
+                
                 for i in range(ENTRIES_PER_PAGE):
+                    
                     entry_value = key_column.read(i)
                     if entry_value == key:
+                        rid_column = base_page.columns_list[RID_COLUMN]
                         found_rid = rid_column.read(i)
                         if self.page_directory[found_rid]["deleted"]:
                             found_rid = None
