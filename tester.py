@@ -89,4 +89,20 @@ def test_database() -> None:
     print(f'Table total Base Pages: {table_bp_2}\n')
     pass
 
-test_database()
+#test_database()
+
+
+def test_database2() -> None:
+    '''
+    Test to check DB table creation functionality
+    '''
+    print('----------- test_database2 -------------')
+    
+    # check DB and Table creation
+    db = Database()
+    db.open("./root")
+    test_table = db.create_table(name='Students', num_columns=2, key=0)
+    test_table = db.create_table(name='Teachers', num_columns=2, key=0)
+    #test_table = db.drop_table(name='Students')
+
+test_database2()
