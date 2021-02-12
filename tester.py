@@ -1,5 +1,6 @@
 import math
 from random import randint
+import shutil
 
 from lstore.db import *
 from lstore.table import *
@@ -25,7 +26,7 @@ def makeTable():
                 # print(f'{column} : {column.data}\n')
                 print(f'            {column}\n')
 
-makeTable()
+#makeTable()
 
 def testInsert():
     records = {}
@@ -91,6 +92,8 @@ def test_database() -> None:
 
 #test_database()
 
+def clear_database():
+    shutil.rmtree("./root")
 
 def test_database2() -> None:
     '''
@@ -99,10 +102,11 @@ def test_database2() -> None:
     print('----------- test_database2 -------------')
     
     # check DB and Table creation
+    clear_database()
     db = Database()
     db.open("./root")
     test_table = db.create_table(name='Students', num_columns=2, key=0)
-    test_table = db.create_table(name='Teachers', num_columns=2, key=0)
-    #test_table = db.drop_table(name='Students')
+    test_table = db.create_table(name='Teachers', num_columns=5, key=1)
+    db.close()
 
 test_database2()

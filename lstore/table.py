@@ -5,6 +5,8 @@ from lstore.record import *
 from lstore.helpers import *
 from time import time
 import math
+import json
+import os
 from inspect import currentframe, getframeinfo
 
 frameinfo = getframeinfo(currentframe())
@@ -143,27 +145,89 @@ class Table:
     :param num_records: int         Number of records in the table
     :param num_columns: dict        dict of names associated with columns according to column keys
     """
-    def __init__(self, name, num_columns, key):
+    def __init__(self, name, num_columns, key, path=None):
         self.name = name
+        self.table_path = path
         self.key = key
         self.num_columns = num_columns
         self.page_directory = {}
         self.index = Index(self)
+        self.num_page_ranges = 0
+        self.page_range_data = {}
         self.page_ranges = [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)] # Initialize with a single PageRange
+        self.page_ranges_in_disk = self._allocate_page_range_to_disk()
         self.num_records = 0
         self.num_base_records = 0
         self.num_tail_records = 0
         self.column_names = { 
             0: 'Indirection',
             1: 'RID', 
-            2: 'Time Stamp',
-            3: 'Schema'
+            2: 'Base_RID',
+            3: 'Timestamp',
+            4: 'Schema'
         }
 
+    def _allocate_page_range_to_disk(self):
+        print(self.table_path)
+        page_range_path_name = f"{self.table_path}/page_range_{self.num_page_ranges}"
+        if os.path.isdir(page_range_path_name):
+            # TODO page range not incremeneted errot
+            print("Page range was not incrememnted")
+            return False
+        else:
+            os.mkdir(page_range_path_name)
+            for i in range(BASE_PAGE_COUNT):
+                base_page_file = open(f"{page_range_path_name}/base_page_{i}.bin", "wb")
+                physical_page = bytearray(PAGE_SIZE)
+                base_page_file.write(physical_page)
+                base_page_file.close()
+            
+            tail_page_directory_path_name = f"{page_range_path_name}/tail_pages"
+            os.mkdir(tail_page_directory_path_name)
+
+            self.page_range_data[self.num_page_ranges] = {
+                "tail_page_count": 0,
+                "num_tail_records": 0
+            }
+            
+            tail_page_count = self.page_range_data[self.num_page_ranges].get("tail_page_count")
+            self._allocate_new_tail_page(self.num_page_ranges, tail_page_count)
+            
+            self.num_page_ranges += 1
+    
+    def _allocate_new_tail_page(self, num_page_ranges, tail_page_count):
+            new_tail_file = open(f"page_range_{num_page_ranges}/tail_page_{tail_page_count}.bin", "wb")
+            physical_page = bytearray(PAGE_SIZE)
+            new_tail_file.write(physical_page)
+            new_tail_file.close()
+            self.page_range_data[self.num_page_ranges]["tail_page_count"] += 1
 
     def __merge(self):
         pass
+
+    def save_table_data(self):
+        table_data = {
+            "name": self.name,
+            "key": self.key,
+            "table_path": self.table_path,
+            "num_columns": self.num_columns,
+            "num_records": self.num_records,
+            "num_base_records": self.num_base_records,
+            "num_tail_records": self.num_tail_records,
+            "column_names": self.column_names,
+            "num_page_ranges": self.num_page_ranges,
+            "page_range_data": self.page_range_data
+        }
+        self.page_directory["table_data"] = table_data
     
+    def close_table_page_directory(self):
+        self.save_table_data()
+        page_directory_as_json = json.dumps(self.page_directory)
+        # TODO make sure this opens and writes, else should return false
+        page_directory_file = open(f"{self.table_path}/page_directory.json", "w")
+        page_directory_file.write(page_directory_as_json)
+        page_directory_file.close()
+        return True
 
     def new_base_rid(self) -> int:
         '''

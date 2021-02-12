@@ -13,6 +13,7 @@ class Database():
 
     def open(self, path):
         if os.path.isdir(path):
+            self.root_name = path
             print(f"Directory found")
         else:
             os.mkdir(path)
@@ -21,8 +22,18 @@ class Database():
 
 
     def close(self):
-        # Anything in the bufferpool with a dirty bit needs to go back to disk
-        pass
+        # go through every table and save the page directorys
+        for table_info in self.tables.values():
+            print("table_info", table_info)
+            table = table_info.get("table")
+            table_name = table_info.get("name")
+            did_close = table.close_table_page_directory()
+            if not did_close:
+                # TODO raise exception
+                print(f"Could not close the page directory: {table_name}")
+                return False
+        
+        return True
 
     """
     # Creates a new table
@@ -34,21 +45,31 @@ class Database():
 
         table_path_name = f"{self.root_name}/{name}"
         if os.path.isdir(table_path_name):
+            # TODO let the user know this name is already taken
+            print(f"Sorry the name {name} is already taken")
             return False
         else:
             os.mkdir(table_path_name)
-
-        table = Table(name, num_columns, key)
-        self.tables[name] = table_path_name # TODO: check if name is best way to map
+        
+        print("table_path_name", table_path_name)
+        table = Table(name, num_columns, key, path=table_path_name)
+        self.tables[name] = {
+            "name": name,
+            "table_path_name": table_path_name,
+            "num_columns": num_columns,
+            "key": key,
+            "table": table
+        }
         return table
 
     """
     # Deletes the specified table
     """
     def drop_table(self, name):
-        if name in self.tables: 
-            if os.path.isdir(self.tables[name]):
-                os.rmdir(self.tables[name])
+        if name in self.tables:
+            table_directory = self.tables[name]["table_path_name"]
+            if os.path.isdir(table_directory):
+                os.rmdir(table_directory)
                 del self.tables[name]
                 return True
             else:

@@ -45,7 +45,7 @@ class Bufferpool:
 class Frame:
 
     def __init__(self,table_name):
-        self.all_columns = []
+        self.all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
         self.dirty_bit = False
         self.pin = False
         self.time_in_bufferpool = 0
