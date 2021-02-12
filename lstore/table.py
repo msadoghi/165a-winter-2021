@@ -168,18 +168,25 @@ class Table:
         }
 
     def _allocate_page_range_to_disk(self):
-        print(self.table_path)
         page_range_path_name = f"{self.table_path}/page_range_{self.num_page_ranges}"
         if os.path.isdir(page_range_path_name):
             # TODO page range not incremeneted errot
             print("Page range was not incrememnted")
             return False
         else:
+
             os.mkdir(page_range_path_name)
+
             for i in range(BASE_PAGE_COUNT):
-                base_page_file = open(f"{page_range_path_name}/base_page_{i}.bin", "wb")
+
+                base_page_file_name = f"{page_range_path_name}/base_page_{i}.bin"
+                base_page_file = open(base_page_file_name, "wb")
+                
                 physical_page = bytearray(PAGE_SIZE)
-                base_page_file.write(physical_page)
+                for i in range(self.num_columns+META_COLUMN_COUNT):
+                    base_page_file.write(physical_page)
+                
+                # print(f"The size using getSize of {base_page_file_name} is {getSize(base_page_file)}\n")
                 base_page_file.close()
             
             tail_page_directory_path_name = f"{page_range_path_name}/tail_pages"
@@ -187,20 +194,26 @@ class Table:
 
             self.page_range_data[self.num_page_ranges] = {
                 "tail_page_count": 0,
-                "num_tail_records": 0
+                "num_tail_records": 0,
+                "path_to_tail_pages": f"{self.table_path}/page_range_{self.num_page_ranges}/tail_pages"
             }
-            
+
             tail_page_count = self.page_range_data[self.num_page_ranges].get("tail_page_count")
             self._allocate_new_tail_page(self.num_page_ranges, tail_page_count)
             
             self.num_page_ranges += 1
     
     def _allocate_new_tail_page(self, num_page_ranges, tail_page_count):
-            new_tail_file = open(f"page_range_{num_page_ranges}/tail_page_{tail_page_count}.bin", "wb")
+            # Create new tail page
+            new_tail_file_name = f"{self.table_path}/page_range_{num_page_ranges}/tail_pages/tail_page_{tail_page_count}.bin"
+            new_tail_file = open(new_tail_file_name, "wb")
+
             physical_page = bytearray(PAGE_SIZE)
-            new_tail_file.write(physical_page)
+            for i in range(self.num_columns + META_COLUMN_COUNT):
+                new_tail_file.write(physical_page)
+
             new_tail_file.close()
-            self.page_range_data[self.num_page_ranges]["tail_page_count"] += 1
+            self.page_range_data[num_page_ranges]["tail_page_count"] += 1
 
     def __merge(self):
         pass

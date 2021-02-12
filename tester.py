@@ -102,11 +102,12 @@ def test_database2() -> None:
     print('----------- test_database2 -------------')
     
     # check DB and Table creation
-    clear_database()
+    #clear_database()
     db = Database()
     db.open("./root")
     test_table = db.create_table(name='Students', num_columns=2, key=0)
     test_table = db.create_table(name='Teachers', num_columns=5, key=1)
+    # db.drop_table(name='Teachers')
     db.close()
 
 test_database2()

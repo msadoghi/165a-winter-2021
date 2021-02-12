@@ -9,8 +9,8 @@ class Bufferpool:
         self.frame_directory = {}
         self.frame_count = 0
 
-    def _add_frame_to_directory(self,page_range,base_page,column_num):
-        new_frame_key = (page_range,base_page,column_num)
+    def _add_frame_to_directory(self,page_range,base_page):
+        new_frame_key = (page_range,base_page)
         self.frame_directory[new_frame_key] = self.frame_count
         self.frame_count += 1
 
@@ -20,13 +20,14 @@ class Bufferpool:
         else:
             return True    
 
-    def rid_in_pool(self,rid,column):
+    def rid_in_pool(self,rid):
+        # TODO update math to use updated rids
         page_range_index = math.floor(rid / ENTRIES_PER_PAGE_RANGE)
         index = rid % ENTRIES_PER_PAGE_RANGE
         base_page_index = math.floor(index / ENTRIES_PER_PAGE)
-        location_of_column = (page_range_index,base_page_index,column)
+        location_of_base_page = (page_range_index,base_page_index)
 
-        if location_of_column in self.frame_directory:
+        if location_of_base_page in self.frame_directory:
             return True
         else:
             return False
@@ -45,6 +46,7 @@ class Bufferpool:
 class Frame:
 
     def __init__(self,table_name):
+
         self.all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
         self.dirty_bit = False
         self.pin = False
