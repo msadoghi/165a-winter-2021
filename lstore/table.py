@@ -3,6 +3,7 @@ from lstore.index import Index
 from lstore.config import *
 from lstore.record import *
 from lstore.helpers import *
+from lstore.bufferpool import *
 from time import time
 import math
 import json
@@ -145,8 +146,9 @@ class Table:
     :param num_records: int         Number of records in the table
     :param num_columns: dict        dict of names associated with columns according to column keys
     """
-    def __init__(self, name, num_columns, key, path=None):
+    def __init__(self, name: str, num_columns: int, key: int, path: str = None, bufferpool: Bufferpool = None):
         self.name = name
+        self.bufferpool = bufferpool
         self.table_path = path
         self.key = key
         self.num_columns = num_columns
@@ -154,8 +156,8 @@ class Table:
         self.index = Index(self)
         self.num_page_ranges = 0
         self.page_range_data = {}
-        self.page_ranges = [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)] # Initialize with a single PageRange
-        self.page_ranges_in_disk = self._allocate_page_range_to_disk()
+        self.page_ranges = self._allocate_page_range_to_disk         # [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)] 
+        #  self.page_ranges_in_disk = self._allocate_page_range_to_disk()
         self.num_records = 0
         self.num_base_records = 0
         self.num_tail_records = 0
@@ -170,7 +172,7 @@ class Table:
     def _allocate_page_range_to_disk(self):
         page_range_path_name = f"{self.table_path}/page_range_{self.num_page_ranges}"
         if os.path.isdir(page_range_path_name):
-            # TODO page range not incremeneted errot
+            # TODO page range not incremeneted error
             print("Page range was not incrememnted")
             return False
         else:
@@ -202,7 +204,8 @@ class Table:
             self._allocate_new_tail_page(self.num_page_ranges, tail_page_count)
             
             self.num_page_ranges += 1
-    
+
+
     def _allocate_new_tail_page(self, num_page_ranges, tail_page_count):
             # Create new tail page
             new_tail_file_name = f"{self.table_path}/page_range_{num_page_ranges}/tail_pages/tail_page_{tail_page_count}.bin"
@@ -215,8 +218,10 @@ class Table:
             new_tail_file.close()
             self.page_range_data[num_page_ranges]["tail_page_count"] += 1
 
+
     def __merge(self):
         pass
+
 
     def save_table_data(self):
         table_data = {
@@ -232,7 +237,8 @@ class Table:
             "page_range_data": self.page_range_data
         }
         self.page_directory["table_data"] = table_data
-    
+
+
     def close_table_page_directory(self):
         self.save_table_data()
         page_directory_as_json = json.dumps(self.page_directory)
@@ -241,6 +247,7 @@ class Table:
         page_directory_file.write(page_directory_as_json)
         page_directory_file.close()
         return True
+
 
     def new_base_rid(self) -> int:
         '''
@@ -272,8 +279,9 @@ class Table:
         physical_page_index = index % ENTRIES_PER_PAGE
 
         # Check if current page range has space for another record
-        if page_range_index > len(self.page_ranges)-1:
-            self.create_new_page_range()
+        if page_range_index > self.num_page_ranges - 1:
+            self._allocate_page_range_to_disk()
+        # TODO check if this is working like assumed
 
         record_info = {
             'page_range': page_range_index,
@@ -294,6 +302,7 @@ class Table:
         rid = self.num_records
         self.num_records += 1
         self.page_directory[rid] = self.__new_tail_rid_dict(page_range_index=page_range_index)
+        # TODO blocked on PageRange implementation
         self.page_ranges[page_range_index].num_tail_records += 1
         self.num_tail_records += 1
 
@@ -309,6 +318,8 @@ class Table:
         :param tail_page: int       Integer value associated with the record's Tail_page index within the Base_page
         :param page_index: int      Integer value associated with the record's Page index within the Tail_page
         '''
+
+        # TODO need to get info from new PageRange data encapsualtion or from page_range_data
         relative_rid = self.page_ranges[page_range_index].num_tail_records
         tail_page_index = math.floor(relative_rid / ENTRIES_PER_PAGE) 
         physical_page_index = relative_rid % ENTRIES_PER_PAGE
@@ -367,7 +378,7 @@ class Table:
             return True                                           # the page is full
         return False
 
-
+    # Deprecated
     def create_new_page_range(self) -> int:
         '''
         This function creates a new PageRange for the Table and returns its key index for the Table.page_ranges list
@@ -380,7 +391,7 @@ class Table:
 
         return pr_index
     
-
+    # Deprecated
     def __find_next_open_tail_record(self, base_page: BasePage) -> dict:
         '''
         finds the next available tail page record slot and returns a dict with the indices, 
@@ -404,7 +415,7 @@ class Table:
 
         return { 'tail_page': new_tp_index, 'tail_page_index': 0 }
     
-
+    # Deprecated
     def __find_next_open_base_record(self) -> dict:
         '''
         finds the next available base page record slot and returns a dict with the indices, 
@@ -442,9 +453,22 @@ class Table:
         bp = record_info.get('base_page')
         pi = record_info.get('page_index')
 
+        # Check if record is in bufferpool
+        if not self.bufferpool.is_base_page_in_pool(table_name=self.name, bp_index=bp):
+            # TODO load appropriate BasePage into the bufferpool
+            pass
+
+        # Get frame index
+        frame_index = self.bufferpool.get_base_page_frame_index(table_name=self.name, bp_index=bp)
+
+        # TODO pin BasePage frame before writing
+
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
-            self.page_ranges[pr].base_pages[bp].columns_list[i].write(value, pi)
+            self.bufferpool.frames[frame_index].page.columns_list[i].write(value, pi)
+
+        # TODO set dirty_bit on BasePage frame
+        # TODO unpin BasePage frame after writing
 
         return True
 
@@ -501,51 +525,59 @@ class Table:
         :return Record: Record      Returns the MRU Record associated with the ris
 
         '''
-        # print('**** Reading Record *****')
+
         record_info = self.page_directory.get(rid)
         #check if updated value is false
         pg = record_info.get("page_range")
-        bs = record_info.get("base_page")
+        bp = record_info.get("base_page")
         pp_index = record_info.get("page_index")
         all_entries = []
-        
-        indirection_rid = self.page_ranges[pg].base_pages[bs].columns_list[INDIRECTION].read(pp_index)
 
-        # print(f'pg_range = {pg_range} bs_page = {bs_page} pg_index = {pg_index}')
-        # print(f'indirection_tid = {indirection_tid}')
+        # Check if the BasePage is in the Bufferpool
+        if not self.bufferpool.is_base_page_in_pool(table_name=self.name, bp_index=bp):
+            # TODO load appropriate BasePage into the bufferpool
+            pass
+        
+        # Get frame index
+        frame_index = self.bufferpool.get_base_page_frame_index(table_name=self.name, bp_index=bp)
+
+        # TODO pin the BasePage frame
+        indirection_rid = self.bufferpool.frames[frame_index].page.columns_list[INDIRECTION].read(pp_index)
 
         for col in range(self.num_columns + META_COLUMN_COUNT):
-            entry = self.page_ranges[pg].base_pages[bs].columns_list[col].read(pp_index)
-            # print(f'Entry at col {col} = {entry}')
+            entry = self.bufferpool.frames[frame_index].page.columns_list[col].read(pp_index)
             all_entries.append(entry)
         key = all_entries[KEY_COLUMN]
         schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
         user_cols = all_entries[KEY_COLUMN: ]
-        # print(f'key = {key} schema_encode = {schema_encode} user_cols = {user_cols}')
+        # TODO unpin the BasePage frame
 
         if not schema_encode:
-            # print('NOT SCHEMA')
             return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
         else:
-            # print('SCHEMA')
+            
             ind_dict = self.page_directory.get(indirection_rid)
             tail_page = ind_dict.get('tail_page')
             tp_index = ind_dict.get('page_index')
             column_update_indices = []
-            # print(f'ind_dict = {ind_dict} tail_page = {tail_page} tp_index = {tp_index}')
 
+            # Check if the TailPage is in the Bufferpool
+            if not self.bufferpool.is_tail_page_in_pool(table_name=self.name, tp_index=tp_index):
+                # TODO load appropriate TailPage into the bufferpool
+                pass
+            
+            # Get frame index
+            tp_frame_index = self.bufferpool.get_tail_page_frame_index(table_name=self.name, tp_index=tp_index)
+            
             for i in range(KEY_COLUMN, self.num_columns + META_COLUMN_COUNT):
-                # print(f'@ i = {i}')
                 if get_bit(schema_encode, i - META_COLUMN_COUNT):
-                    # print(f'APPEND')
                     column_update_indices.append(i)
             
-            # print(f'column_update_indices = {column_update_indices}')
+            # TODO pin TailPage frame
             for index in column_update_indices:
-                user_cols[index - META_COLUMN_COUNT] = self.page_ranges[pg].tail_pages[tail_page].columns_list[index].read(tp_index)
-            # print(f'user_cols = {user_cols}')
+                user_cols[index - META_COLUMN_COUNT] = self.bufferpool.frames[tp_frame_index].page.columns_list[index].read(tp_index)
+            # TODO unpin TailPage frame
 
-        # print(f'**** RETURNING READ *****')
         return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
 
 

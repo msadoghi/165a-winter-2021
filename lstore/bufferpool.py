@@ -5,14 +5,22 @@ from lstore.table import *
 class Bufferpool:
 
     def __init__(self):
-        self.frames = []
-        self.frame_directory = {}
+        self.frames = [Frame() for i in range(BUFFERPOOL_FRAME_COUNT)]
+        self.frame_directory = {
+            # "table_name" : {
+            #           "RIDS" : { rid: frame_index, ... },
+            #           "BPS"  : { base_page_index: frame_index, ... },
+            #           "TPS"  : { tail_page_index: frame_index, ... }
+            # }
+        }
         self.frame_count = 0
+        # TODO need to intiialize frame_directory after Table is created in the DB
 
     def _add_frame_to_directory(self,page_range,base_page):
         new_frame_key = (page_range,base_page)
         self.frame_directory[new_frame_key] = self.frame_count
         self.frame_count += 1
+
 
     def at_capacity(self):
         if self.frame_count < BUFFERPOOL_FRAME_COUNT:
@@ -20,23 +28,77 @@ class Bufferpool:
         else:
             return True    
 
-    def rid_in_pool(self,rid):
-        # TODO update math to use updated rids
-        page_range_index = math.floor(rid / ENTRIES_PER_PAGE_RANGE)
-        index = rid % ENTRIES_PER_PAGE_RANGE
-        base_page_index = math.floor(index / ENTRIES_PER_PAGE)
-        location_of_base_page = (page_range_index,base_page_index)
 
-        if location_of_base_page in self.frame_directory:
+    def is_rid_in_pool(self, table_name: str, rid: int) -> bool:
+        '''
+        Checks if a RID for a given table_name exists in the BufferPool and returns
+        True if it does, False otherwise
+        '''
+        
+        table_rids = self.frame_directory.get(table_name).get('RIDS')
+
+        if rid in table_rids.keys():
             return True
-        else:
-            return False
+
+        return False
+    
+
+    def get_rid_frame_index(self, table_name: str, rid: int) -> int:
+        '''
+        Return bufferpool frame index for a table's rid
+        '''
+
+        return self.frame_directory.get(table_name).get('RIDS').get(rid)
+
+
+    def is_base_page_in_pool(self, table_name: str, bp_index: int) -> bool:
+        '''
+        Checks if a BasePage for a given table_name exists in the BufferPool and returns
+        True if it does, False otherwise
+        '''
+
+        table_bps = self.frame_directory.get(table_name).get('BPS')
+
+        if bp_index in table_bps.keys():
+            return True
+        
+        return False
+    
+
+    def get_base_page_frame_index(self, table_name: str, bp_index: int) -> int:
+        '''
+        Return bufferpool frame index for a table's BasePage
+        '''
+
+        return self.frame_directory.get(table_name).get('BPS').get(bp_index)
+
+
+    def is_tail_page_in_pool(self, table_name: str, tp_index: int) -> bool:
+        '''
+        Checks if a TailPage for a given table_name exists in the BufferPool and returns
+        True if it does, False otherwise
+        '''
+
+        table_tps = self.frame_directory.get(table_name).get('TPS')
+
+        if tp_index in table_tps.keys():
+            return True
+        
+        return False
+    
+
+    def get_tail_page_frame_index(self, table_name: str, tp_index: int) -> int:
+        '''
+        Return bufferpool frame index for a table's TailPage
+        '''
+
+        return self.frame_directory.get(table_name).get('TPS').get(tp_index)
 
 
     def evict_page(self):
         pass
 
-    def load_page(self,base_page,page_range,column_num):
+    def load_page(self, base_page, page_range, column_num):
         pass
 
     def commit_page(self):
@@ -45,9 +107,9 @@ class Bufferpool:
 
 class Frame:
 
-    def __init__(self,table_name):
+    def __init__(self, table_name):
 
-        self.all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
+        self.page = None # Initialize at none since different tables have different column counts
         self.dirty_bit = False
         self.pin = False
         self.time_in_bufferpool = 0

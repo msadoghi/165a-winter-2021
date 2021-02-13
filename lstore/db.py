@@ -9,9 +9,15 @@ class Database():
         # store tables in a dictionary
         self.table_directory = {}
         self.tables = {}
-        self.bufferpool = Bufferpool()
+        self.bufferpool = self.start_bufferpool()
         self.root_name = None
         pass
+
+
+    def start_bufferpool(self) -> Bufferpool:
+        bufferpool = Bufferpool()
+        return bufferpool
+
 
     def open(self, path):
         '''
@@ -81,6 +87,7 @@ class Database():
             "key": key
         }
         return table
+
 
     def delete_directory(self, path):
         shutil.rmtree(path)
