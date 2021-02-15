@@ -103,15 +103,18 @@ def test_database2() -> None:
     print('----------- test_database2 -------------')
     
     # check DB and Table creation
-    #clear_database()
+    clear_database()
     db = Database()
     db.open("./root")
-    test_table = db.create_table(name='Students', num_columns=2, key=0)
-    test_table = db.create_table(name='Teachers', num_columns=5, key=1)
-    # db.drop_table(name='Teachers')
-    db.close()
+    student_table = db.create_table(name='Students', num_columns=6, key=0)
+    teacher_table = db.create_table(name='Teachers', num_columns=3, key=1)
+    student_query = Query(student_table)
+    print(student_query)
+    student_query.insert(7909887, 1, 2, 3, 4, 5)
+    student_query.insert(8798797, 6, 7, 8, 9, 10)
+    # db.close()
 
-# test_database2()
+print(test_database2())
 
 def test_insert_read() -> None:
     '''
@@ -131,4 +134,4 @@ def test_insert_read() -> None:
     db.close()
     clear_database()
 
-test_insert_read()
+#test_insert_read()

@@ -10,13 +10,13 @@ class Database():
         # store tables in a dictionary
         self.table_directory = {}
         self.tables = {}
-        self.bufferpool = self.start_bufferpool()
+        self.bufferpool = None
         self.root_name = None
         pass
 
 
     def start_bufferpool(self) -> Bufferpool:
-        bufferpool = Bufferpool()
+        bufferpool = Bufferpool(self.root_name)
         return bufferpool
 
 
@@ -31,6 +31,8 @@ class Database():
         else: # Make a new root for this database
             os.mkdir(path)
             self.root_name = path
+
+        self.bufferpool = Bufferpool(path)
 
         # TODO : Create table objects with simplified data members to interact with the bufferpool
         # TODO : Read in indexes and page directories
@@ -79,7 +81,7 @@ class Database():
         
         # TODO : simplify table object down to the bare minimum
         # Initialize Table Name in Bufferpool
-        self.bufferpool.frame_directory[name] = { 'RIDS': {}, 'BPS': {}, 'TPS': {} }
+        # self.bufferpool.frame_directory[name] = { 'RIDS': {}, 'BPS': {}, 'TPS': {} }
 
         table = Table(name, num_columns, key, path=table_path_name, bufferpool=self.bufferpool)
         self.tables[name] = table

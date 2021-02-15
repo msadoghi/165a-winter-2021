@@ -15,7 +15,7 @@ class BasePage:
 
 class Bufferpool:
 
-    def __init__(self):
+    def __init__(self, path_to_root):
         self.frames = [Frame() for i in range(BUFFERPOOL_FRAME_COUNT)]
         self.frame_directory = {
             # "table_name" : {
@@ -25,10 +25,11 @@ class Bufferpool:
             # }
         }
         self.frame_count = 0
+        self.path_to_root = path_to_root
         # TODO need to intiialize frame_directory after Table is created in the DB
 
-    def _add_frame_to_directory(self,page_range,base_page):
-        new_frame_key = (page_range,base_page)
+    def _add_frame_to_directory(self, table_name, page_range, base_page, is_base_record):
+        new_frame_key = (table_name, page_range, base_page, is_base_record)
         self.frame_directory[new_frame_key] = self.frame_count
         self.frame_count += 1
 
@@ -105,12 +106,45 @@ class Bufferpool:
 
         return self.frame_directory.get(table_name).get('TPS').get(tp_index)
 
+    def is_record_in_pool(self, table_name, record_info: dict) -> bool:
+        is_base_record = record_info.get("is_base_record")
+        page_range = record_info.get("page_range")
+        if is_base_record:
+            base_page_index = record_info.get("base_page")
+        if not is_base_record:
+            base_page_index = record_info.get("tail_page")
+        page_index = record_info.get("page_index")
+        
+        frame_info = (table_name, page_range, base_page_index, is_base_record)
+        print("Frame Info", frame_info)
+        print("Frame Directory", self.frame_directory)
+        if frame_info in self.frame_directory:
+            return True
+        else:
+            return False
+
 
     def evict_page(self):
         pass
 
-    def load_page(self, base_page, page_range, column_num):
-        pass
+    def load_page(self, table_name: str, num_columns: int, page_range_index: int, base_page_index: int, is_base_record: bool):
+        
+        if is_base_record:
+            path_to_page = f"{self.path_to_root}/{table_name}/page_range_{page_range_index}/base_page_{base_page_index}.bin"
+        if not is_base_record:
+            path_to_page = f"{self.path_to_root}/{table_name}/{page_range_index}/tail_pages/tail_page_{base_page_index}.bin"
+
+        print("Path to page", path_to_page)
+        self.frames[self.frame_count].all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
+        print(self.frames[self.frame_count].all_columns)
+
+        for i in range(num_columns + META_COLUMN_COUNT):
+            self.frames[self.frame_count].all_columns[i].read_from_disk(path_to_page=path_to_page, row=i)
+        print(self.frames[self.frame_count].all_columns)
+
+        self._add_frame_to_directory(table_name, page_range_index, base_page_index, is_base_record)
+        return self.frames[self.frame_count].all_columns
+
 
     def load_dummy_page(self, table_name: str, num_columns: int, page_range_index: int, base_page_index: int, rid: int):
         self.frames[0].page = BasePage(num_columns, page_range_index, base_page_index)
@@ -125,7 +159,7 @@ class Bufferpool:
 class Frame:
 
     def __init__(self):
-        self.page = None # Initialize at none since different tables have different column counts
+        self.all_columns = [] # Initialize at none since different tables have different column counts
         self.dirty_bit = False
         self.pin = False
         self.time_in_bufferpool = 0

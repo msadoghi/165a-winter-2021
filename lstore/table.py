@@ -434,25 +434,37 @@ class Table:
         pr = record_info.get('page_range')
         bp = record_info.get('base_page')
         pi = record_info.get('page_index')
+        is_base_record = record_info.get('is_base_record')
 
         # Check if record is in bufferpool
         print(self.bufferpool.frame_directory)
-        if not self.bufferpool.is_base_page_in_pool(table_name=self.name, bp_index=bp):
-            # TODO load appropriate BasePage into the bufferpool, pin Frame on load?
-            self.bufferpool.load_dummy_page(self.name, self.num_columns, pr, bp, rid)
+        # if not self.bufferpool.is_base_page_in_pool(table_name=self.name, bp_index=bp):
+        #     # TODO load appropriate BasePage into the bufferpool, pin Frame on load?
+        #     self.bufferpool.load_dummy_page(self.name, self.num_columns, pr, bp, rid)
+        if not self.bufferpool.is_record_in_pool(self.name, record_info=record_info):
+            loaded_page = self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp, is_base_record=is_base_record)
 
         # Get Frame index
-        frame_index = self.bufferpool.get_base_page_frame_index(table_name=self.name, bp_index=bp)
+        # frame_index = self.bufferpool.get_base_page_frame_index(table_name=self.name, bp_index=bp)
+        
+        frame_info = (self.name, pr, bp, is_base_record)
+        frame_index = self.bufferpool.frame_directory[frame_info]
+        print("frame info", frame_info)
+        print("frame index", frame_index)
 
         # Start working with BasePage Frame
         self.bufferpool.frames[frame_index].pin_frame()
         for i in range(len(record.all_columns)):
+            print(i)
             value = record.all_columns[i]
-            self.bufferpool.frames[frame_index].page.columns_list[i].write(value, pi)
+            print(value)
+            print(self.bufferpool.frames[frame_index].all_columns)
+            self.bufferpool.frames[frame_index].all_columns[i].write(value, pi)
         self.bufferpool.frames[frame_index].set_dirty_bit()
-        self.bufferpool.frames[frame_index].unpin_frame()
-        # Stop working with BasePage Frame
 
+        # Stop working with BasePage Frame
+        self.bufferpool.frames[frame_index].unpin_frame()
+        
         return True
 
 
