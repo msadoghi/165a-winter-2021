@@ -80,9 +80,7 @@ frameinfo = getframeinfo(currentframe())
 
 class BasePage:
     '''
-    :param tail_page_list: list      Stores a list of all Tail_Page objects associated with the Base_page
     :param columns_list: list        Stores a list of all Page objects for the Base_page, these are the data columns
-    :param tail_page_count: int      An integer that holds the current amount of tail pages the Base_page has
     :param pr_key: int               Holds the integer key of the parent Page Range
     :param key: int                  Holds the integer key of itself as it maps to the Parent Page_range list
     '''
@@ -116,23 +114,6 @@ class PageRange:
         self.key = pr_key
         self.num_tail_pages = 1
         self.num_tail_records = 0
-        # Array of Base_pages based on Const.BASE_PAGE_COUNT
-        self.base_pages = [BasePage(num_columns=num_columns, parent_key=pr_key, bp_key=i) for i in range(BASE_PAGE_COUNT)]
-        self.tail_pages = [TailPage(num_columns=num_columns, key=0)]
-    
-
-    def create_new_tail_page(self) -> int:
-        '''
-        This function creates a new Tail_page for a PageRange and returns its index for Base_page.tail_page_list
-        '''
-
-        # length of a 0 - indexed list will return the appropriate index that the tail page will reside at 
-        # in PageRange.tail_pages
-        tp_index = len(self.tail_pages)
-        new_tail_page = TailPage(num_columns=self.num_columns, key=tp_index)
-        self.tail_pages.append(new_tail_page)
-
-        return tp_index
     
         
 class Table:
@@ -156,8 +137,8 @@ class Table:
         self.index = Index(self)
         self.num_page_ranges = 0
         self.page_range_data = {}
-        self.page_ranges = self._allocate_page_range_to_disk         # [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)] 
-        #  self.page_ranges_in_disk = self._allocate_page_range_to_disk()
+        self.page_ranges = [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)] 
+        self.page_ranges_in_disk = self._allocate_page_range_to_disk()
         self.num_records = 0
         self.num_base_records = 0
         self.num_tail_records = 0
@@ -280,8 +261,8 @@ class Table:
 
         # Check if current page range has space for another record
         if page_range_index > self.num_page_ranges - 1:
+            self.create_new_page_range()
             self._allocate_page_range_to_disk()
-        # TODO check if this is working like assumed
 
         record_info = {
             'page_range': page_range_index,
@@ -302,8 +283,9 @@ class Table:
         rid = self.num_records
         self.num_records += 1
         self.page_directory[rid] = self.__new_tail_rid_dict(page_range_index=page_range_index)
-        # TODO blocked on PageRange implementation
+        
         self.page_ranges[page_range_index].num_tail_records += 1
+        self.page_range_data[page_range_index][num_tail_records] += 1 # TODO do we need to be updating this or is it done at save?
         self.num_tail_records += 1
 
         return rid
@@ -319,14 +301,14 @@ class Table:
         :param page_index: int      Integer value associated with the record's Page index within the Tail_page
         '''
 
-        # TODO need to get info from new PageRange data encapsualtion or from page_range_data
         relative_rid = self.page_ranges[page_range_index].num_tail_records
         tail_page_index = math.floor(relative_rid / ENTRIES_PER_PAGE) 
         physical_page_index = relative_rid % ENTRIES_PER_PAGE
 
         # Check if current PageRange needs another TailPage allocated
-        if tail_page_index > len(self.page_ranges[page_range_index].tail_pages)-1:
-            self.page_ranges[page_range_index].create_new_tail_page()
+        if tail_page_index > self.page_ranges[page_range_index].num_tail_pages - 1:
+            self.page_ranges[page_range_index].num_tail_pages += 1
+            self._allocate_new_tail_page(self.num_page_ranges, self.page_ranges[page_range_index].num_tail_pages)   
         
         rid_dict = {
             'page_range': page_range_index,
@@ -378,7 +360,7 @@ class Table:
             return True                                           # the page is full
         return False
 
-    # Deprecated
+
     def create_new_page_range(self) -> int:
         '''
         This function creates a new PageRange for the Table and returns its key index for the Table.page_ranges list
@@ -454,21 +436,22 @@ class Table:
         pi = record_info.get('page_index')
 
         # Check if record is in bufferpool
+        print(self.bufferpool.frame_directory)
         if not self.bufferpool.is_base_page_in_pool(table_name=self.name, bp_index=bp):
-            # TODO load appropriate BasePage into the bufferpool
-            pass
+            # TODO load appropriate BasePage into the bufferpool, pin Frame on load?
+            self.bufferpool.load_dummy_page(self.name, self.num_columns, pr, bp, rid)
 
-        # Get frame index
+        # Get Frame index
         frame_index = self.bufferpool.get_base_page_frame_index(table_name=self.name, bp_index=bp)
 
-        # TODO pin BasePage frame before writing
-
+        # Start working with BasePage Frame
+        self.bufferpool.frames[frame_index].pin_frame()
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
             self.bufferpool.frames[frame_index].page.columns_list[i].write(value, pi)
-
-        # TODO set dirty_bit on BasePage frame
-        # TODO unpin BasePage frame after writing
+        self.bufferpool.frames[frame_index].set_dirty_bit()
+        self.bufferpool.frames[frame_index].unpin_frame()
+        # Stop working with BasePage Frame
 
         return True
 
@@ -536,12 +519,13 @@ class Table:
         # Check if the BasePage is in the Bufferpool
         if not self.bufferpool.is_base_page_in_pool(table_name=self.name, bp_index=bp):
             # TODO load appropriate BasePage into the bufferpool
-            pass
+            self.bufferpool.load_dummy_page(self.name, self.num_columns, pg, bp, rid)
         
-        # Get frame index
+        # Get Frame index
         frame_index = self.bufferpool.get_base_page_frame_index(table_name=self.name, bp_index=bp)
 
-        # TODO pin the BasePage frame
+        # Start working with BasPage Frame
+        self.bufferpool.frames[frame_index].pin_frame()
         indirection_rid = self.bufferpool.frames[frame_index].page.columns_list[INDIRECTION].read(pp_index)
 
         for col in range(self.num_columns + META_COLUMN_COUNT):
@@ -550,7 +534,8 @@ class Table:
         key = all_entries[KEY_COLUMN]
         schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
         user_cols = all_entries[KEY_COLUMN: ]
-        # TODO unpin the BasePage frame
+        self.bufferpool.frames[frame_index].unpin_frame()
+        # Done working with BasePage Frame
 
         if not schema_encode:
             return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
@@ -566,17 +551,19 @@ class Table:
                 # TODO load appropriate TailPage into the bufferpool
                 pass
             
-            # Get frame index
+            # Get Frame index
             tp_frame_index = self.bufferpool.get_tail_page_frame_index(table_name=self.name, tp_index=tp_index)
             
             for i in range(KEY_COLUMN, self.num_columns + META_COLUMN_COUNT):
                 if get_bit(schema_encode, i - META_COLUMN_COUNT):
                     column_update_indices.append(i)
             
-            # TODO pin TailPage frame
+            # Start working with TailPage Frame
+            self.bufferpool.frames[tp_frame_index].pin_frame()
             for index in column_update_indices:
                 user_cols[index - META_COLUMN_COUNT] = self.bufferpool.frames[tp_frame_index].page.columns_list[index].read(tp_index)
-            # TODO unpin TailPage frame
+            self.bufferpool.frames[tp_frame_index].unpin_frame()
+            # Done working with TailPage Frame
 
         return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
 

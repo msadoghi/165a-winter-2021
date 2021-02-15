@@ -2,6 +2,7 @@ from lstore.table import Table
 from lstore.bufferpool import *
 import os
 import shutil
+import json
 
 class Database():
 
@@ -77,7 +78,10 @@ class Database():
             os.mkdir(table_path_name)
         
         # TODO : simplify table object down to the bare minimum
-        table = Table(name, num_columns, key, path=table_path_name)
+        # Initialize Table Name in Bufferpool
+        self.bufferpool.frame_directory[name] = { 'RIDS': {}, 'BPS': {}, 'TPS': {} }
+
+        table = Table(name, num_columns, key, path=table_path_name, bufferpool=self.bufferpool)
         self.tables[name] = table
         # Add table information to table directory
         self.table_directory[name] = {

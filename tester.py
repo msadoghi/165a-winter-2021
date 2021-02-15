@@ -5,6 +5,7 @@ import shutil
 from lstore.db import *
 from lstore.table import *
 from lstore.config import *
+from lstore.query import *
 
 
 def makeTable():
@@ -52,7 +53,7 @@ def __rid_to_page_location(rid: int) -> dict:
     physical_page_index = index % ENTRIES_PER_PAGE
     return { 'page_range': page_range_index, 'base_page': base_page_index, 'page_index': physical_page_index }
 
-print(f'{__rid_to_page_location(2050)}\n')
+# print(f'{__rid_to_page_location(2050)}\n')
 
 
 def test_database() -> None:
@@ -110,4 +111,24 @@ def test_database2() -> None:
     # db.drop_table(name='Teachers')
     db.close()
 
-test_database2()
+# test_database2()
+
+def test_insert_read() -> None:
+    '''
+    Test to check insert and read from the bufferpool
+    '''
+    print('----------- test_insert_read -------------')
+    
+    db = Database()
+    db.open('./root')
+    test_table = db.create_table('test', 6, 0)
+    query = Query(test_table)
+
+    query.insert(999, 1, 2, 3, 4, 5)
+    record = query.select(999, 0, [1,1,1,1,1])
+    print(record)
+    db.drop_table('test')
+    db.close()
+    clear_database()
+
+test_insert_read()
