@@ -14,12 +14,6 @@ class Database():
         self.root_name = None
         pass
 
-
-    def start_bufferpool(self) -> Bufferpool:
-        bufferpool = Bufferpool(self.root_name)
-        return bufferpool
-
-
     def open(self, path):
         '''
         Open takes in a path to the root of the file system
@@ -34,7 +28,7 @@ class Database():
 
         self.bufferpool = Bufferpool(path)
 
-        # TODO : Create table objects with simplified data members to interact with the bufferpool
+        # TODO : Load in table information and create simplfied table objects
         # TODO : Read in indexes and page directories
 
 
@@ -48,7 +42,6 @@ class Database():
         table_directory_file.write(table_directory_as_json)
         table_directory_file.close()
 
-        # TODO : check dirty bits
         # go through every table and save the page directorys
         for table_info in self.table_directory.values():
             table_name = table_info.get("name")
@@ -58,9 +51,12 @@ class Database():
                 # TODO raise exception
                 print(f"Could not close the page directory: {table_name}")
                 return False
+        
+        # Write all dirty values back to disk
+        self.bufferpool.commit_all_frames()
 
         # TODO : save indexes as json
-        
+
         return True
 
     """
@@ -80,11 +76,9 @@ class Database():
             os.mkdir(table_path_name)
         
         # TODO : simplify table object down to the bare minimum
-        # Initialize Table Name in Bufferpool
-        # self.bufferpool.frame_directory[name] = { 'RIDS': {}, 'BPS': {}, 'TPS': {} }
-
         table = Table(name, num_columns, key, path=table_path_name, bufferpool=self.bufferpool)
         self.tables[name] = table
+
         # Add table information to table directory
         self.table_directory[name] = {
             "name": name,

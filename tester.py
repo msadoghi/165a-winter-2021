@@ -103,7 +103,7 @@ def test_database2() -> None:
     print('----------- test_database2 -------------')
     
     # check DB and Table creation
-    clear_database()
+    # clear_database()
     db = Database()
     db.open("./root")
     student_table = db.create_table(name='Students', num_columns=6, key=0)
@@ -112,26 +112,24 @@ def test_database2() -> None:
     print(student_query)
     student_query.insert(7909887, 1, 2, 3, 4, 5)
     student_query.insert(8798797, 6, 7, 8, 9, 10)
-    # db.close()
+    db.close()
 
-print(test_database2())
+# print(test_database2())
 
 def test_insert_read() -> None:
     '''
     Test to check insert and read from the bufferpool
     '''
     print('----------- test_insert_read -------------')
-    
+    # clear_database()
     db = Database()
     db.open('./root')
     test_table = db.create_table('test', 6, 0)
     query = Query(test_table)
-
     query.insert(999, 1, 2, 3, 4, 5)
-    record = query.select(999, 0, [1,1,1,1,1])
-    print(record)
-    db.drop_table('test')
+    record = query.select(999, 0, [1,1,1,1,1,1])
+    print(record[0].all_columns)
+    # db.drop_table('test')
     db.close()
-    clear_database()
 
-#test_insert_read()
+test_insert_read()

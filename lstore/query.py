@@ -44,10 +44,8 @@ class Query:
         unique_identifier = columns[0]
         columns_list = list(columns)
         if len(columns_list) != self.table.num_columns:
-            print("here")
             return False
         if not self._check_values_are_valid(columns_list):
-            print("here2")
             return False
         # if self.table.record_does_exist(key=unique_identifier) != None:
         #     return False
@@ -55,9 +53,9 @@ class Query:
         # New record passed the checks, set schema encoding to 0, create a new record, and write to the table
         blank_schema_encoding = 0
         new_rid = self.table.new_base_rid()
+        self.table.index_on_primary_key[unique_identifier] = new_rid
         new_record = Record(key=unique_identifier, rid=new_rid, schema_encoding=blank_schema_encoding, column_values=columns_list)
         did_successfully_write = self.table.write_new_record(record=new_record, rid=new_rid)
-        print("Did write?", did_successfully_write)
 
         if did_successfully_write:
             return True
