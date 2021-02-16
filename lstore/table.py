@@ -389,7 +389,6 @@ class Table:
         is_base_record = record_info.get('is_base_record')
 
         # Check if record is in bufferpool
-        print(self.bufferpool.frame_directory)
         if not self.bufferpool.is_record_in_pool(self.name, record_info=record_info):
             did_load = self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp, is_base_record=is_base_record)
             if not did_load:
@@ -399,9 +398,6 @@ class Table:
         # Get Frame index        
         frame_info = (self.name, pr, bp, is_base_record)
         frame_index = self.bufferpool.frame_directory[frame_info]
-
-        # Start working with BasePage Frame
-        self.bufferpool.frames[frame_index].pin_frame()
 
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
@@ -515,7 +511,6 @@ class Table:
 
         if not schema_encode:
             return Record(key= key, rid = rid, schema_encoding = schema_encode, column_values = user_cols)
-
         else:
             # record has been updated before
             ind_dict = self.page_directory.get(indirection_rid)

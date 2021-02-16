@@ -17,7 +17,7 @@ class Bufferpool:
 
     def __init__(self, path_to_root):
         self.frames = []
-        self.frame_directory = {}
+        self.frame_directory = {} # (table_name, page_range, base_or_tail_page_index, is_base_record) : frame index
         self.frame_count = 0
         self.path_to_root = path_to_root
 
@@ -87,6 +87,9 @@ class Bufferpool:
         # Allocate a new frame
         if not self.at_capacity():
             self.frames.append(Frame(path_to_page_on_disk=path_to_page, table_name=table_name))
+
+        # Pin the frame
+        self.frames[frame_index].pin_frame()
 
         # Allocate physical pages for meta data and user data
         self.frames[frame_index].all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]

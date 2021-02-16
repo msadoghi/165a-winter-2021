@@ -21,6 +21,7 @@ class Database():
         # Check if root path already exists and set the root_name
         if os.path.isdir(path):
             self.root_name = path
+            # TODO Reload in table data
 
         else: # Make a new root for this database
             os.mkdir(path)
