@@ -188,9 +188,9 @@ class Table:
             self.num_page_ranges += 1
 
 
-    def _allocate_new_tail_page(self, num_page_ranges, tail_page_count):
+    def _allocate_new_tail_page(self, page_range_index, tail_page_index):
             # Create new tail page
-            new_tail_file_name = f"{self.table_path}/page_range_{num_page_ranges}/tail_pages/tail_page_{tail_page_count}.bin"
+            new_tail_file_name = f"{self.table_path}/page_range_{page_range_index}/tail_pages/tail_page_{tail_page_index}.bin"
             new_tail_file = open(new_tail_file_name, "wb")
 
             physical_page = bytearray(PAGE_SIZE)
@@ -198,7 +198,7 @@ class Table:
                 new_tail_file.write(physical_page)
 
             new_tail_file.close()
-            self.page_range_data[num_page_ranges]["tail_page_count"] += 1
+            self.page_range_data[page_range_index]["tail_page_count"] += 1
 
 
     def __merge(self):
@@ -285,10 +285,6 @@ class Table:
         rid = self.num_records
         self.num_records += 1
         self.page_directory[rid] = self.__new_tail_rid_dict(page_range_index=page_range_index)
-        
-        self.page_ranges[page_range_index].num_tail_records += 1
-        self.page_range_data[page_range_index]["num_tail_records"] += 1 # TODO do we need to be updating this or is it done at save?
-        self.num_tail_records += 1
 
         return rid
 
@@ -305,12 +301,14 @@ class Table:
 
         relative_rid = self.page_ranges[page_range_index].num_tail_records
         tail_page_index = math.floor(relative_rid / ENTRIES_PER_PAGE) 
-        physical_page_index = relative_rid % ENTRIES_PER_PAGE
+        physical_page_index = relative_rid % ENTRIES_PER_PAGE  
 
-        # Check if current PageRange needs another TailPage allocated
-        if tail_page_index > self.page_ranges[page_range_index].num_tail_pages - 1:
-            self.page_ranges[page_range_index].num_tail_pages += 1
-            self._allocate_new_tail_page(self.num_page_ranges, self.page_ranges[page_range_index].num_tail_pages)   
+         # Check if current PageRange needs another TailPage allocated
+        if tail_page_index > self.page_range_data[page_range_index]["tail_page_count"] - 1:
+            self._allocate_new_tail_page(self.num_page_ranges, self.page_ranges[page_range_index].num_tail_pages)
+        
+        self.page_range_data[page_range_index]["num_tail_records"] += 1
+        self.num_tail_records += 1
         
         rid_dict = {
             'page_range': page_range_index,
@@ -387,18 +385,18 @@ class Table:
         bp = record_info.get('base_page')
         pi = record_info.get('page_index')
         is_base_record = record_info.get('is_base_record')
+        
+        # Get Frame index        
+        frame_info = (self.name, pr, bp, is_base_record)
 
         # Check if record is in bufferpool
         if not self.bufferpool.is_record_in_pool(self.name, record_info=record_info):
-            did_load = self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp, is_base_record=is_base_record)
-            if not did_load:
-                # TODO throw an exception
-                print("COULD NOT LOAD")
+            frame_index = self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp, is_base_record=is_base_record)
+            print(self.bufferpool.frame_directory)
+        if  self.bufferpool.is_record_in_pool(self.name, record_info=record_info):
+            frame_index = frame_index = self.bufferpool.frame_directory[frame_info]
 
-        # Get Frame index        
-        frame_info = (self.name, pr, bp, is_base_record)
-        frame_index = self.bufferpool.frame_directory[frame_info]
-
+        # Write values to page
         for i in range(len(record.all_columns)):
             value = record.all_columns[i]
             self.bufferpool.frames[frame_index].all_columns[i].write(value, pi)

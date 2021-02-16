@@ -24,15 +24,15 @@ class Bufferpool:
     def _add_frame_to_directory(self, table_name, page_range, base_page, is_base_record, frame_index):
         new_frame_key = (table_name, page_range, base_page, is_base_record)
         self.frame_directory[new_frame_key] = frame_index
-        if not self.at_capacity:
+        if self.frame_count < BUFFERPOOL_FRAME_COUNT:
             self.frame_count += 1
 
 
     def at_capacity(self):
-        if self.frame_count < BUFFERPOOL_FRAME_COUNT:
-            return False
-        else:
+        if self.frame_count == BUFFERPOOL_FRAME_COUNT:
             return True
+        
+        return False
 
 
     def is_record_in_pool(self, table_name, record_info: dict) -> bool:
