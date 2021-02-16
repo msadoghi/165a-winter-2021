@@ -24,6 +24,7 @@ class Bufferpool:
     def _add_frame_to_directory(self, table_name, page_range, base_page, is_base_record, frame_index):
         new_frame_key = (table_name, page_range, base_page, is_base_record)
         self.frame_directory[new_frame_key] = frame_index
+        
         if self.frame_count < BUFFERPOOL_FRAME_COUNT:
             self.frame_count += 1
 
