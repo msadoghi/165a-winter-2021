@@ -1,18 +1,6 @@
 from lstore.config import * 
 from lstore.page import *
 
-class BasePage:
-    '''
-    :param columns_list: list        Stores a list of all Page objects for the Base_page, these are the data columns
-    :param pr_key: int               Holds the integer key of the parent Page Range
-    :param key: int                  Holds the integer key of itself as it maps to the Parent Page_range list
-    '''
-    def __init__(self, num_columns: int, parent_key: int, bp_key: int):
-        # Create a list of Physical Pages num_columns long plus Indirection, RID, TimeStamp, and Schema columns
-        self.columns_list = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
-        self.pr_key = parent_key
-        self.key = bp_key
-
 class Bufferpool:
 
     def __init__(self, path_to_root):
@@ -63,8 +51,9 @@ class Bufferpool:
             index += 1
         
         if self.frames[least_used_page].dirty_bit:
-            for i in range(len(self.frames[least_used_page].all_columns)):
-                self.frames[least_used_page].all_columns[i].write_to_disk(path_to_page_on_disk, i)
+            frame_to_write = self.frames[least_used_page]
+            all_columns = frame_to_write.all_columns
+            frame_to_write.write_to_disk(path_to_page_on_disk, all_columns)
         
         return least_used_page
 
@@ -106,15 +95,18 @@ class Bufferpool:
 
 
     def commit_page(self, frame_index):
-        for i in range(len(self.frames[frame_index].all_columns)):
-            path_to_page = self.frames[frame_index].path_to_page_on_disk
-            self.frames[frame_index].all_columns[i].write_to_disk(path_to_page, i)
+        frame_to_commit = self.frames[frame_index]
+        all_columns = frame_to_commit.all_columns
+        path_to_page = frame_to_commit.path_to_page_on_disk
+        if frame_to_commit.dirty_bit:
+            frame_to_commit.write_to_disk(path_to_page, all_columns)
 
 
     def commit_all_frames(self):
         for i in range(len(self.frames)):
             if self.frames[i].dirty_bit:
                 self.commit_page(frame_index=i)
+                
 
 class Frame:
 
@@ -138,5 +130,11 @@ class Frame:
     def unpin_frame(self):
         self.pin = False
         return True
+
+    def write_to_disk(self, path_to_page: str, all_columns: list):
+        bin_file = open(path_to_page, "wb")
+        for i in range(len(all_columns)):
+           bin_file.write(all_columns[i].data)
+        bin_file.close()
     
 
