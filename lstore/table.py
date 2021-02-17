@@ -154,9 +154,7 @@ class Table:
     def _allocate_page_range_to_disk(self):
         page_range_path_name = f"{self.table_path}/page_range_{self.num_page_ranges}"
         if os.path.isdir(page_range_path_name):
-            # TODO page range not incremeneted error
-            print("Page range was not incrememnted")
-            return False
+            raise Exception("Page range was not incrememnted")
         else:
 
             os.mkdir(page_range_path_name)

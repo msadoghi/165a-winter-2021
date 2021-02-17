@@ -49,9 +49,7 @@ class Database():
             table = self.tables[table_name]
             did_close = table.close_table_page_directory()
             if not did_close:
-                # TODO raise exception
-                print(f"Could not close the page directory: {table_name}")
-                return False
+                raise Exception(f"Could not close the page directory: {table_name}")
         
         # Write all dirty values back to disk
         self.bufferpool.commit_all_frames()
@@ -70,9 +68,7 @@ class Database():
  
         table_path_name = f"{self.root_name}/{name}"
         if os.path.isdir(table_path_name):
-            # TODO let the user know this name is already taken
-            print(f"Sorry the name {name} is already taken")
-            return False
+            raise Exception(f"Sorry the name {name} is already taken")
         else:
             os.mkdir(table_path_name)
         
