@@ -48,7 +48,7 @@ class Bufferpool:
         """
         Function that evicts a page from the Bufferpool
         """
-        print('EVICTING')
+
         least_used_page = float('inf')
         index = 0
 
@@ -64,6 +64,7 @@ class Bufferpool:
             write_to_disk(write_path, all_columns)
 
         frame_key = self.frames[least_used_page].tuple_key
+        # print(f'EVICTING {frame_key}')
         del self.frame_directory[frame_key]
 
         return least_used_page
@@ -98,7 +99,7 @@ class Bufferpool:
         self.frames[frame_index].all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
 
         # Read in values from disk
-        print(f'Reading from {path_to_page}')
+        # print(f'Reading from {path_to_page}')
         for i in range(num_columns + META_COLUMN_COUNT):
             self.frames[frame_index].all_columns[i].read_from_disk(path_to_page=path_to_page, column=i)
 
@@ -112,7 +113,7 @@ class Bufferpool:
         all_columns = frame_to_commit.all_columns
         path_to_page = frame_to_commit.path_to_page_on_disk
         if frame_to_commit.dirty_bit:
-            frame_to_commit.write_to_disk(path_to_page, all_columns)
+            write_to_disk(path_to_page, all_columns)
 
     def commit_all_frames(self):
         for i in range(len(self.frames)):
