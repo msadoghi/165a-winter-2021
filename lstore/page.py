@@ -4,6 +4,7 @@ import struct
 from math import ceil
 import time
 
+
 class Page:
 
     def __init__(self, column_num):
@@ -23,11 +24,11 @@ class Page:
     def write(self, value, row) -> bool:
         if row > ENTRIES_PER_PAGE: # row number is larger than 511
             return False
-        else:
-            starting_point = row * PAGE_RECORD_SIZE
-            self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)] = value.to_bytes(8, 'big')
-            self.num_records += 1
-            return True
+
+        starting_point = row * PAGE_RECORD_SIZE
+        self.data[starting_point:(starting_point + PAGE_RECORD_SIZE)] = value.to_bytes(8, 'big')
+        self.num_records += 1
+        return True
 
     def read(self, row) -> int:
         starting_point = row * PAGE_RECORD_SIZE
@@ -35,11 +36,13 @@ class Page:
         int_val = int.from_bytes(bytes=ret_value_in_bytes, byteorder="big")
         return int_val
 
-    def read_from_disk(self, path_to_page: str, row: int) -> bool:
+    def read_from_disk(self, path_to_page: str, column: int) -> bool:
         bin_file = open(path_to_page, "rb")
-        bin_file.seek(row*PAGE_SIZE)
+        bin_file.seek(column * PAGE_SIZE)
         self.data = bytearray(bin_file.read(PAGE_SIZE))
         bin_file.close()
+
+        return True
 
 
 
