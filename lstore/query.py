@@ -126,8 +126,8 @@ class Query:
         valid_rid = self.table.record_does_exist(key=key)
         if valid_rid is None:
             return False
-        
-        current_record = self.table.read_record(rid=valid_rid) # read record need to give the MRU
+        print(f'*************************** UPDATE FOR {key} ******************************')
+        current_record = self.table.read_record(rid=valid_rid)  # read record need to give the MRU
         # print("current_record", current_record.all_columns)
         schema_encoding_as_int = current_record.all_columns[SCHEMA_ENCODING_COLUMN]
         current_record_data = current_record.user_data
@@ -146,8 +146,9 @@ class Query:
                 schema_encoding_as_int = set_bit(value=schema_encoding_as_int, bit_index=i)
                 current_record_data[i] = columns[i]
         
-        new_tail_record = Record(key=key, rid=valid_rid, schema_encoding=schema_encoding_as_int, column_values=current_record_data)
-
+        new_tail_record = Record(key=key, rid=valid_rid, schema_encoding=schema_encoding_as_int,
+                                 column_values=current_record_data)
+        print(f'PRE update {new_tail_record.all_columns}')
         return self.table.update_record(updated_record=new_tail_record, rid=valid_rid)
 
     """
