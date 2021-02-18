@@ -455,7 +455,6 @@ class Table:
         """
         :param rid: int             RID of the record being read
         :return Record: Record      Returns the MRU Record associated with the RID
-
         """
 
         record_info = self.page_directory.get(rid)
@@ -491,36 +490,36 @@ class Table:
 
         if not schema_encode:
             return Record(key=key, rid=rid, schema_encoding=schema_encode, column_values=user_cols)
-        else:
-            # record has been updated before
-            ind_dict = self.page_directory.get(indirection_rid)
-            pr = ind_dict.get("page_range")
-            tp = ind_dict.get('tail_page')
-            tp_index = ind_dict.get('page_index')
-            is_base_record = ind_dict.get("is_base_record")
-            column_update_indices = []
 
-            # Check if the TailPage is in the Bufferpool
-            frame_info = (self.name, pr, tp, is_base_record)
-            if not self.bufferpool.is_record_in_pool(self.name, record_info=ind_dict):
-                frame_index = self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr,
-                                                        base_page_index=bp, is_base_record=is_base_record)
+        # record has been updated before
+        ind_dict = self.page_directory.get(indirection_rid)
+        pr = ind_dict.get("page_range")
+        tp = ind_dict.get('tail_page')
+        tp_index = ind_dict.get('page_index')
+        is_base_record = ind_dict.get("is_base_record")
+        column_update_indices = []
 
-            if self.bufferpool.is_record_in_pool(self.name, record_info=ind_dict):
-                frame_index = self.bufferpool.frame_directory.get(frame_info)
-            
-            for i in range(KEY_COLUMN, self.num_columns + META_COLUMN_COUNT):
-                if get_bit(schema_encode, i - META_COLUMN_COUNT):
-                    column_update_indices.append(i)
-            
-            # Start working with TailPage Frame
-            self.bufferpool.frames[frame_index].pin_frame()
-            for index in column_update_indices:
-                user_cols[index - META_COLUMN_COUNT] = \
-                    self.bufferpool.frames[frame_index].all_columns[index].read(tp_index)
+        # Check if the TailPage is in the Bufferpool
+        frame_info = (self.name, pr, tp, is_base_record)
+        if not self.bufferpool.is_record_in_pool(self.name, record_info=ind_dict):
+            frame_index = self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr,
+                                                    base_page_index=bp, is_base_record=is_base_record)
 
-            self.bufferpool.frames[frame_index].unpin_frame()
-            # Done working with TailPage Frame
+        if self.bufferpool.is_record_in_pool(self.name, record_info=ind_dict):
+            frame_index = self.bufferpool.frame_directory.get(frame_info)
+
+        for i in range(KEY_COLUMN, self.num_columns + META_COLUMN_COUNT):
+            if get_bit(schema_encode, i - META_COLUMN_COUNT):
+                column_update_indices.append(i)
+
+        # Start working with TailPage Frame
+        self.bufferpool.frames[frame_index].pin_frame()
+        for index in column_update_indices:
+            user_cols[index - META_COLUMN_COUNT] = \
+                self.bufferpool.frames[frame_index].all_columns[index].read(tp_index)
+
+        self.bufferpool.frames[frame_index].unpin_frame()
+        # Done working with TailPage Frame
 
         return Record(key=key, rid=rid, schema_encoding=schema_encode, column_values=user_cols)
 
