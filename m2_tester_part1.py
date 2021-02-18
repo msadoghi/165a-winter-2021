@@ -44,6 +44,7 @@ for _ in range(10):
             original = records[key].copy()
             records[key][i] = value
             query.update(key, *updated_columns)
+            # print('POST UPDATE READ')
             record = query.select(key, 0, [1, 1, 1, 1, 1])[0]
             error = False
             for j, column in enumerate(record.user_data):
@@ -51,8 +52,8 @@ for _ in range(10):
                     error = True
             if error:
                 print('update error on', original, 'and', updated_columns, ':', record.user_data, ', correct:', records[key])
-            # else:
-            #     print('update on', original, 'and', updated_columns, ':', record)
+            else:
+                print('update on', original, 'and', updated_columns, ':', record)
             updated_columns[i] = None
 print("Update finished")
 

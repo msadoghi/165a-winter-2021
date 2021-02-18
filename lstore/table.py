@@ -113,7 +113,7 @@ class PageRange:
         self.table_key = parent_key
         self.num_columns = num_columns
         self.key = pr_key
-        self.num_tail_pages = 1
+        self.num_tail_pages = 0
         self.num_tail_records = 0
     
         
@@ -191,7 +191,9 @@ class Table:
         Function that allocates a new TailPage to disk and updates the parent PageRange
         """
         # Create new tail page
+        # # print(f'Allocating new tail page')
         new_tail_file_name = f"{self.table_path}/page_range_{page_range_index}/tail_pages/tail_page_{tail_page_index}.bin"
+
         new_tail_file = open(new_tail_file_name, "wb")
 
         physical_page = bytearray(PAGE_SIZE)
@@ -199,6 +201,7 @@ class Table:
             new_tail_file.write(physical_page)
 
         new_tail_file.close()
+        self.page_ranges[page_range_index].num_tail_pages += 1
         self.page_range_data[page_range_index]["tail_page_count"] += 1
 
     def __merge(self):
@@ -298,9 +301,11 @@ class Table:
         physical_page_index = relative_rid % ENTRIES_PER_PAGE  
 
         # Check if current PageRange needs another TailPage allocated
-        if tail_page_index > self.page_range_data[page_range_index]["tail_page_count"] - 1:
-            self._allocate_new_tail_page(self.num_page_ranges, self.page_ranges[page_range_index].num_tail_pages)
-        
+        # print(f'pre-allocation - {self.page_ranges[page_range_index].num_tail_pages}')
+        if tail_page_index > self.page_ranges[page_range_index].num_tail_pages - 1:
+            self._allocate_new_tail_page(page_range_index, self.page_ranges[page_range_index].num_tail_pages)
+
+        self.page_ranges[page_range_index].num_tail_records += 1
         self.page_range_data[page_range_index]["num_tail_records"] += 1
         self.num_tail_records += 1
         
@@ -310,7 +315,7 @@ class Table:
             'page_index': physical_page_index,
             'is_base_record': False
         }
-
+        # print(f'__new_tail_rid = {rid_dict}')
         return rid_dict
 
     def __get_last_base_page_record_location(self) -> dict:
@@ -369,7 +374,7 @@ class Table:
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
                                       is_base_record=is_base_record)
 
-        print(self.bufferpool.frame_directory)
+        # print(self.bufferpool.frame_directory)
         frame_index = self.bufferpool.frame_directory[frame_info]
 
         # Write values to page
@@ -391,7 +396,8 @@ class Table:
         This function takes a Record and a RID and finds the appropriate place to write the record and writes it
         """
 
-        print('--- UPDATING ---')
+        #
+        # # print('--- UPDATING ---')
         rid_info = self.page_directory.get(rid)
         pr = rid_info.get('page_range')
         bp = rid_info.get('base_page')
@@ -408,22 +414,23 @@ class Table:
         base_page_frame_index = self.bufferpool.frame_directory[frame_info]
 
         old_indirection_rid = self.bufferpool.frames[base_page_frame_index].all_columns[INDIRECTION].read(pp_index)
-        print(f'Updating {self.bufferpool.frames[base_page_frame_index].all_columns[KEY_COLUMN].read(pp_index)}')
+        # # print(f'Updating {self.bufferpool.frames[base_page_frame_index].all_columns[KEY_COLUMN].read(pp_index)}')
         self.bufferpool.frames[base_page_frame_index].unpin_frame()
         # Done working with BasePage
-        print(f'JIM: old_ind_rid {old_indirection_rid}')
+        # # print(f'JIM: old_ind_rid {old_indirection_rid}')
 
         new_update_rid = self.new_tail_rid(page_range_index=pr)
         new_rid_dict = self.page_directory.get(new_update_rid)
-
+        # # print(f'new update rid = {new_update_rid}')
         new_pr = new_rid_dict.get('page_range')
         new_tp = new_rid_dict.get('tail_page')
         new_pp_index = new_rid_dict.get('page_index')
 
         tail_frame_info = (self.name, new_pr, new_tp, False)
-        print(f'tail_frame_info = {tail_frame_info}')
+        # # print(f'tail_frame_info = {tail_frame_info}')
         # Start working with TailPage
         if not self.bufferpool.is_record_in_pool(self.name, record_info=new_rid_dict):
+            # # print(f'Loading TailPage {new_tp}')
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=new_pr, base_page_index=new_tp,
                                       is_base_record=False)
 
@@ -432,13 +439,13 @@ class Table:
         updated_record.all_columns[INDIRECTION] = old_indirection_rid
         updated_record.all_columns[RID_COLUMN] = new_update_rid
 
-        print(f'new_tp = {new_tp} new_pp_index = {new_pp_index}')
+        # # print(f'new_tp = {new_tp} new_pp_index = {new_pp_index}')
     
         for i in range(len(updated_record.all_columns)):
-            # print(f'@ i = {i}; all_columns[{i}] = {updated_record.all_columns[i]}')
+            # # print(f'@ i = {i}; all_columns[{i}] = {updated_record.all_columns[i]}')
             value = updated_record.all_columns[i]
             self.bufferpool.frames[tail_page_frame_index].all_columns[i].write(value, new_pp_index)
-            print(f'read = {self.bufferpool.frames[tail_page_frame_index].all_columns[i].read(new_pp_index)}')
+            # # print(f'read = {self.bufferpool.frames[tail_page_frame_index].all_columns[i].read(new_pp_index)}')
         self.bufferpool.frames[tail_page_frame_index].set_dirty_bit()
         self.bufferpool.frames[tail_page_frame_index].unpin_frame()
         # Stop working with TailPage
@@ -448,29 +455,30 @@ class Table:
         # Update BasePage
         # Start working with BasePage
         if not self.bufferpool.is_record_in_pool(self.name, record_info=rid_info):
-            print('loading BP back in to update...')
+            # # print('loading BP back in to update...')
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
                                       is_base_record=is_base_record)
 
         frame_info = (self.name, pr, bp, is_base_record)
         base_page_frame_index = self.bufferpool.frame_directory[frame_info]
 
-        print(f'new_update_rid = {new_update_rid}')
+        # # print(f'new_update_rid = {new_update_rid}')
         wrote_ind = self.bufferpool.frames[base_page_frame_index].all_columns[INDIRECTION].write(value=new_update_rid,
                                                                                                  row=pp_index)
-        print(f'wrote_ind = {wrote_ind}')
-        print(f'read new_rid = {self.bufferpool.frames[base_page_frame_index].all_columns[INDIRECTION].read(pp_index)}')
+        # # print(f'wrote_ind = {wrote_ind}')
+        # # print(f'read new_rid = {self.bufferpool.frames[base_page_frame_index].all_columns[INDIRECTION].read(pp_index)}')
 
-        print(f'updated_schema = {updated_schema}')
+        # # print(f'updated_schema = {updated_schema}')
         wrote_schema = self.bufferpool.frames[base_page_frame_index].all_columns[SCHEMA_ENCODING_COLUMN]\
             .write(value=updated_schema, row=pp_index)
-        print(f'wrote_schema = {wrote_schema}')
-        print(f'read updated_schema = '
-              f'{self.bufferpool.frames[base_page_frame_index].all_columns[SCHEMA_ENCODING_COLUMN].read(pp_index)}')
+        # # print(f'wrote_schema = {wrote_schema}')
+        # # print(f'read updated_schema = '
+        #       f'{self.bufferpool.frames[base_page_frame_index].all_columns[SCHEMA_ENCODING_COLUMN].read(pp_index)}')
         # Stop working with BasePage
+        self.bufferpool.frames[base_page_frame_index].set_dirty_bit()
         self.bufferpool.frames[base_page_frame_index].unpin_frame()
 
-        print('----- EXITING UPDATE ------')
+        # print('----- EXITING UPDATE ------')
         return True
 
     def read_record(self, rid) -> Record:
@@ -479,8 +487,8 @@ class Table:
         :param rid: int             RID of the record being read
         :return Record: Record      Returns the MRU Record associated with the RID
         """
-        print('----- READ RECORD --------')
-        print(f'rid = {rid}')
+        # print('----- READ RECORD --------')
+        # print(f'rid = {rid}')
         record_info = self.page_directory.get(rid)
         # Check if updated value is false
         pr = record_info.get("page_range")
@@ -492,28 +500,27 @@ class Table:
         # Start working with BasePage Frame
         frame_info = (self.name, pr, bp, is_base_record)
         if not self.bufferpool.is_record_in_pool(self.name, record_info=record_info):
-            print('loading BP...')
+            # print('BP not in pool, loading...')
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
                                       is_base_record=is_base_record)
         
         # Get Frame index
         frame_index = self.bufferpool.frame_directory.get(frame_info)
-
         indirection_rid = self.bufferpool.frames[frame_index].all_columns[INDIRECTION].read(pp_index)
 
         for col in range(self.num_columns + META_COLUMN_COUNT):
             entry = self.bufferpool.frames[frame_index].all_columns[col].read(pp_index)
             all_entries.append(entry)
 
-        print(f'entries = {all_entries}')
+        # print(f'entries = {all_entries}')
         key = all_entries[KEY_COLUMN]
         schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
         user_cols = all_entries[KEY_COLUMN:]
         self.bufferpool.frames[frame_index].unpin_frame()
         # Done working with BasePage Frame
-        print(f'schema = {schema_encode}')
+        # print(f'schema = {schema_encode}')
         if not schema_encode:
-            print('NOT SCHEMA')
+            # print('NOT SCHEMA')
             return Record(key=key, rid=rid, schema_encoding=schema_encode, column_values=user_cols)
 
         # record has been updated before
@@ -524,11 +531,13 @@ class Table:
         is_base_record = ind_dict.get("is_base_record")
         column_update_indices = []
 
+        # print(f'TailPage info: {ind_dict}')
         # Start working with TailPage Frame
         frame_info = (self.name, pr, tp, is_base_record)
+        # print(f'Frame info = {frame_info}')
         if not self.bufferpool.is_record_in_pool(self.name, record_info=ind_dict):
-            print('Not in bufferpool')
-            self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
+            # print('TailPage not in bufferpool, loading...')
+            self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=tp,
                                       is_base_record=is_base_record)
 
         frame_index = self.bufferpool.frame_directory.get(frame_info)
@@ -537,6 +546,7 @@ class Table:
             if get_bit(schema_encode, i - META_COLUMN_COUNT):
                 column_update_indices.append(i)
 
+        # print(f'Frame index  = {frame_index}')
         for index in column_update_indices:
             user_cols[index - META_COLUMN_COUNT] = \
                 self.bufferpool.frames[frame_index].all_columns[index].read(tp_index)
