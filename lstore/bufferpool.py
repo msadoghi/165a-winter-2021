@@ -48,7 +48,7 @@ class Bufferpool:
         """
         Function that evicts a page from the Bufferpool
         """
-
+        print('EVICTING')
         least_used_page = float('inf')
         index = 0
 
@@ -61,7 +61,7 @@ class Bufferpool:
             frame_to_write = self.frames[least_used_page]
             write_path = self.frames[least_used_page].path_to_page_on_disk
             all_columns = frame_to_write.all_columns
-            frame_to_write.write_to_disk(write_path, all_columns)
+            write_to_disk(write_path, all_columns)
 
         frame_key = self.frames[least_used_page].tuple_key
         del self.frame_directory[frame_key]
@@ -98,6 +98,7 @@ class Bufferpool:
         self.frames[frame_index].all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
 
         # Read in values from disk
+        print(f'Reading from {path_to_page}')
         for i in range(num_columns + META_COLUMN_COUNT):
             self.frames[frame_index].all_columns[i].read_from_disk(path_to_page=path_to_page, column=i)
 
@@ -142,16 +143,3 @@ class Frame:
     def unpin_frame(self):
         self.pin = False
         return True
-
-    @staticmethod
-    def write_to_disk(path_to_page: str, all_columns: list):
-        """
-        Writes our pages to disk at the given file path
-        """
-        bin_file = open(path_to_page, "wb")
-        for i in range(len(all_columns)):
-            bin_file.write(all_columns[i].data)
-        bin_file.close()
-
-    
-

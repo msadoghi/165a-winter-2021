@@ -391,7 +391,7 @@ class Table:
         This function takes a Record and a RID and finds the appropriate place to write the record and writes it
         """
 
-        # print('--- UPDATING ---')
+        print('--- UPDATING ---')
         rid_info = self.page_directory.get(rid)
         pr = rid_info.get('page_range')
         bp = rid_info.get('base_page')
@@ -399,6 +399,8 @@ class Table:
         is_base_record = rid_info.get("is_base_record")
 
         frame_info = (self.name, pr, bp, is_base_record)
+
+        # Start working with BasePage
         if not self.bufferpool.is_record_in_pool(self.name, record_info=rid_info):
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
                                       is_base_record=is_base_record)
@@ -406,6 +408,10 @@ class Table:
         base_page_frame_index = self.bufferpool.frame_directory[frame_info]
 
         old_indirection_rid = self.bufferpool.frames[base_page_frame_index].all_columns[INDIRECTION].read(pp_index)
+        print(f'Updating {self.bufferpool.frames[base_page_frame_index].all_columns[KEY_COLUMN].read(pp_index)}')
+        self.bufferpool.frames[base_page_frame_index].unpin_frame()
+        # Done working with BasePage
+        print(f'JIM: old_ind_rid {old_indirection_rid}')
 
         new_update_rid = self.new_tail_rid(page_range_index=pr)
         new_rid_dict = self.page_directory.get(new_update_rid)
@@ -413,50 +419,68 @@ class Table:
         new_pr = new_rid_dict.get('page_range')
         new_tp = new_rid_dict.get('tail_page')
         new_pp_index = new_rid_dict.get('page_index')
-        is_base_record = new_rid_dict.get("is_base_record")
-        frame_info = (self.name, new_pr, new_tp, is_base_record)
 
+        tail_frame_info = (self.name, new_pr, new_tp, False)
+        print(f'tail_frame_info = {tail_frame_info}')
+        # Start working with TailPage
         if not self.bufferpool.is_record_in_pool(self.name, record_info=new_rid_dict):
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=new_pr, base_page_index=new_tp,
-                                      is_base_record=is_base_record)
+                                      is_base_record=False)
 
-        tail_page_frame_index = self.bufferpool.frame_directory.get(frame_info)
+        tail_page_frame_index = self.bufferpool.frame_directory.get(tail_frame_info)
 
         updated_record.all_columns[INDIRECTION] = old_indirection_rid
         updated_record.all_columns[RID_COLUMN] = new_update_rid
 
-        # print(f'new_tp = {new_tp} new_pp_index = {new_pp_index}')
+        print(f'new_tp = {new_tp} new_pp_index = {new_pp_index}')
     
         for i in range(len(updated_record.all_columns)):
             # print(f'@ i = {i}; all_columns[{i}] = {updated_record.all_columns[i]}')
             value = updated_record.all_columns[i]
             self.bufferpool.frames[tail_page_frame_index].all_columns[i].write(value, new_pp_index)
-            # print(f'read = {self.book[pr].pages[bp].tail_page_list[new_tp].columns_list[i].read(new_pp_index)}')
+            print(f'read = {self.bufferpool.frames[tail_page_frame_index].all_columns[i].read(new_pp_index)}')
+        self.bufferpool.frames[tail_page_frame_index].set_dirty_bit()
+        self.bufferpool.frames[tail_page_frame_index].unpin_frame()
+        # Stop working with TailPage
         
         updated_schema = updated_record.all_columns[SCHEMA_ENCODING_COLUMN]
 
-        # print(f'updated_schema = {updated_schema}')
+        # Update BasePage
+        # Start working with BasePage
+        if not self.bufferpool.is_record_in_pool(self.name, record_info=rid_info):
+            print('loading BP back in to update...')
+            self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
+                                      is_base_record=is_base_record)
+
+        frame_info = (self.name, pr, bp, is_base_record)
+        base_page_frame_index = self.bufferpool.frame_directory[frame_info]
+
+        print(f'new_update_rid = {new_update_rid}')
         wrote_ind = self.bufferpool.frames[base_page_frame_index].all_columns[INDIRECTION].write(value=new_update_rid,
                                                                                                  row=pp_index)
+        print(f'wrote_ind = {wrote_ind}')
+        print(f'read new_rid = {self.bufferpool.frames[base_page_frame_index].all_columns[INDIRECTION].read(pp_index)}')
 
-        # print(f'wrote_ind = {wrote_ind}')
-        # print(f'read new_tid = {self.book[pr].pages[bp].columns_list[INDIRECTION].read(pp_index)}')
-
+        print(f'updated_schema = {updated_schema}')
         wrote_schema = self.bufferpool.frames[base_page_frame_index].all_columns[SCHEMA_ENCODING_COLUMN]\
             .write(value=updated_schema, row=pp_index)
+        print(f'wrote_schema = {wrote_schema}')
+        print(f'read updated_schema = '
+              f'{self.bufferpool.frames[base_page_frame_index].all_columns[SCHEMA_ENCODING_COLUMN].read(pp_index)}')
+        # Stop working with BasePage
+        self.bufferpool.frames[base_page_frame_index].unpin_frame()
 
-        # print(f'wrote_schema = {wrote_schema}')
-        # print(f'read updated_schema = {self.book[pr].pages[bp].columns_list[SCHEMA_ENCODING_COLUMN].read(pp_index)}')
-
-        # print('----- EXITING UPDATE ------')
+        print('----- EXITING UPDATE ------')
         return True
 
     def read_record(self, rid) -> Record:
         """
+        Reads and returns the Record of a given RID
         :param rid: int             RID of the record being read
         :return Record: Record      Returns the MRU Record associated with the RID
         """
-
+        print('----- READ RECORD --------')
+        print(f'rid = {rid}')
         record_info = self.page_directory.get(rid)
         # Check if updated value is false
         pr = record_info.get("page_range")
@@ -465,30 +489,31 @@ class Table:
         is_base_record = record_info.get("is_base_record")
         all_entries = []
 
-        # Check if the BasePage is in the Bufferpool
+        # Start working with BasePage Frame
         frame_info = (self.name, pr, bp, is_base_record)
         if not self.bufferpool.is_record_in_pool(self.name, record_info=record_info):
+            print('loading BP...')
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
                                       is_base_record=is_base_record)
         
         # Get Frame index
         frame_index = self.bufferpool.frame_directory.get(frame_info)
 
-        # Start working with BasePage Frame
-        self.bufferpool.frames[frame_index].pin_frame()
         indirection_rid = self.bufferpool.frames[frame_index].all_columns[INDIRECTION].read(pp_index)
 
         for col in range(self.num_columns + META_COLUMN_COUNT):
             entry = self.bufferpool.frames[frame_index].all_columns[col].read(pp_index)
             all_entries.append(entry)
 
+        print(f'entries = {all_entries}')
         key = all_entries[KEY_COLUMN]
         schema_encode = all_entries[SCHEMA_ENCODING_COLUMN]
         user_cols = all_entries[KEY_COLUMN:]
         self.bufferpool.frames[frame_index].unpin_frame()
         # Done working with BasePage Frame
-
+        print(f'schema = {schema_encode}')
         if not schema_encode:
+            print('NOT SCHEMA')
             return Record(key=key, rid=rid, schema_encoding=schema_encode, column_values=user_cols)
 
         # record has been updated before
@@ -499,25 +524,23 @@ class Table:
         is_base_record = ind_dict.get("is_base_record")
         column_update_indices = []
 
-        # Check if the TailPage is in the Bufferpool
+        # Start working with TailPage Frame
         frame_info = (self.name, pr, tp, is_base_record)
         if not self.bufferpool.is_record_in_pool(self.name, record_info=ind_dict):
-            frame_index = self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr,
-                                                    base_page_index=bp, is_base_record=is_base_record)
+            print('Not in bufferpool')
+            self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
+                                      is_base_record=is_base_record)
 
-        if self.bufferpool.is_record_in_pool(self.name, record_info=ind_dict):
-            frame_index = self.bufferpool.frame_directory.get(frame_info)
+        frame_index = self.bufferpool.frame_directory.get(frame_info)
 
         for i in range(KEY_COLUMN, self.num_columns + META_COLUMN_COUNT):
             if get_bit(schema_encode, i - META_COLUMN_COUNT):
                 column_update_indices.append(i)
 
-        # Start working with TailPage Frame
-        self.bufferpool.frames[frame_index].pin_frame()
         for index in column_update_indices:
             user_cols[index - META_COLUMN_COUNT] = \
                 self.bufferpool.frames[frame_index].all_columns[index].read(tp_index)
-
+        # self.bufferpool.frames[frame_index].set_dirty_bit()
         self.bufferpool.frames[frame_index].unpin_frame()
         # Done working with TailPage Frame
 
@@ -533,18 +556,4 @@ class Table:
             if not self.page_directory[rid]["deleted"]:
                 return rid
         
-        return False
-
-    @staticmethod
-    def is_page_full(page: Page) -> bool:
-        """
-        Given a Page object this function will look at the total elements a page can hold: PAGE_SIZE/PAGE_RECORD_SIZE
-        in config.py, then return True if the record count for the page is equal to that value and False otherwise.
-        :param page: Page       Page object to check
-        :return: bool           Returns True if page is full and False otherwise
-        """
-
-        total_elements_possible = (PAGE_SIZE / PAGE_RECORD_SIZE)  # How many total records the page can hold
-        if page.num_records == total_elements_possible:           # If the record count is equal to the total possible
-            return True                                           # the page is full
         return False
