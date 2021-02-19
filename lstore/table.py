@@ -318,11 +318,10 @@ class Table:
         
         # Check if current PageRange needs another TailPage allocated
         if tail_page_index > self.page_range_data[page_range_index]["tail_page_count"] - 1:
-            self._allocate_new_tail_page(self.num_page_ranges, self.page_range_data[page_range_index]["tail_page_count"])
+            self._allocate_new_tail_page(page_range_index, self.page_range_data[page_range_index]["tail_page_count"])
         
         # TODO Do you need this Jim?
-        # self.page_ranges[page_range_index].num_tail_records += 1
-
+        self.page_ranges[page_range_index].num_tail_records += 1
         self.page_range_data[page_range_index]["num_tail_records"] += 1
         self.num_tail_records += 1
         
