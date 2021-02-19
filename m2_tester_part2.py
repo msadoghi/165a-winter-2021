@@ -26,8 +26,8 @@ for _ in range(10):
             records[key][j] = value
 keys = sorted(list(records.keys()))
 for key in keys:
-    print(records[key])
-    print(records[key])
+    # print(records[key])
+    # print(records[key])
 
 for key in keys:
     record = query.select(key, 0, [1, 1, 1, 1, 1])[0]
@@ -36,8 +36,8 @@ for key in keys:
         if column != records[key][i]:
             error = True
     if error:
-        print('select error on', key, ':', record, ', correct:', records[key])
-print("Select finished")
+        # print('select error on', key, ':', record, ', correct:', records[key])
+# print("Select finished")
 
 deleted_keys = sample(keys, 100)
 for key in deleted_keys:

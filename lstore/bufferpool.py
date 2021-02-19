@@ -48,7 +48,9 @@ class Bufferpool:
         """
         Function that evicts a page from the Bufferpool
         """
-        pkl('EVICTING')
+        
+        # print('EVICTING')
+
         least_used_page = float('inf')
         index = 0
 
@@ -65,6 +67,7 @@ class Bufferpool:
         self.commit_page(least_used_page)
 
         frame_key = self.frames[least_used_page].tuple_key
+        # print(f'EVICTING {frame_key}')
         del self.frame_directory[frame_key]
 
         return least_used_page
@@ -99,7 +102,7 @@ class Bufferpool:
         self.frames[frame_index].all_columns = [Page(column_num=i) for i in range(num_columns + META_COLUMN_COUNT)]
 
         # Read in values from disk
-        print(f'Reading from {path_to_page}')
+        # print(f'Reading from {path_to_page}')
         for i in range(num_columns + META_COLUMN_COUNT):
             self.frames[frame_index].all_columns[i].read_from_disk(path_to_page=path_to_page, column=i)
 

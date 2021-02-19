@@ -126,29 +126,29 @@ class Query:
         valid_rid = self.table.record_does_exist(key=key)
         if valid_rid is None:
             return False
-        print(f'*************************** UPDATE FOR {key} ******************************')
+        # print(f'*************************** UPDATE FOR {key} ******************************')
         current_record = self.table.read_record(rid=valid_rid)  # read record need to give the MRU
         # print("current_record", current_record.all_columns)
         schema_encoding_as_int = current_record.all_columns[SCHEMA_ENCODING_COLUMN]
         current_record_data = current_record.user_data
-        # print('schema as int ', schema_encoding_as_int)
+        # # print('schema as int ', schema_encoding_as_int)
         for i in range(len(columns)):
-            # print(f"colummns[i] {i}", columns[i])
+            # # print(f"colummns[i] {i}", columns[i])
             if columns[i] is None:
                 if not get_bit(value=schema_encoding_as_int, bit_index=i):
-                    # print(f'NOT @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
+                    # # print(f'NOT @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
                     current_record_data[i] = 0
                 else:
-                    # print(f' CON @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
+                    # # print(f' CON @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
                     continue
             else:
-                # print(f'ELSE @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
+                # # print(f'ELSE @ i = {i}; set_bit == {set_bit(value=schema_encoding_as_int, bit_index=i)}')
                 schema_encoding_as_int = set_bit(value=schema_encoding_as_int, bit_index=i)
                 current_record_data[i] = columns[i]
         
         new_tail_record = Record(key=key, rid=valid_rid, schema_encoding=schema_encoding_as_int,
                                  column_values=current_record_data)
-        print(f'PRE update {new_tail_record.all_columns}')
+        # print(f'QUERY New Tail Record {new_tail_record.all_columns}')
         return self.table.update_record(updated_record=new_tail_record, rid=valid_rid)
 
     """
