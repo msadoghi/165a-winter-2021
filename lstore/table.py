@@ -6,8 +6,8 @@ from lstore.helpers import *
 from lstore.bufferpool import *
 from time import time
 import math
-import json
 import os
+import pickle
 from inspect import currentframe, getframeinfo
 
 frameinfo = getframeinfo(currentframe())
@@ -125,7 +125,7 @@ class Table:
     :param path: str                File path of the Table
     :param bufferpool: Bufferpool   Active Bufferpool for the Database
     """
-    def __init__(self, name: str, num_columns: int, key: int, path: str = None, bufferpool: Bufferpool = None):
+    def __init__(self, name: str, num_columns: int, key: int, path: str = None, bufferpool: Bufferpool = None, is_new=True):
         self.name = name
         self.bufferpool = bufferpool
         self.table_path = path
@@ -136,8 +136,7 @@ class Table:
         self.index = Index(self)
         self.num_page_ranges = 0
         self.page_range_data = {}
-        self.page_ranges = [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)] 
-        self.page_ranges_in_disk = self._allocate_page_range_to_disk()
+        self.page_ranges = [PageRange(num_columns=num_columns, parent_key=key, pr_key=0)]
         self.num_records = 0
         self.num_base_records = 0
         self.num_tail_records = 0
@@ -149,10 +148,14 @@ class Table:
             4: 'Schema'
         }
 
+        if is_new:
+            self._allocate_page_range_to_disk()
+
     def _allocate_page_range_to_disk(self):
         """
         Function that allocates a new PageRange to disk
         """
+
         page_range_path_name = f"{self.table_path}/page_range_{self.num_page_ranges}"
         if os.path.isdir(page_range_path_name):
             raise Exception("Page range was not incremented")
@@ -223,15 +226,28 @@ class Table:
         }
         self.page_directory["table_data"] = table_data
 
+    def populate_data_members(self, table_data):
+        self.name = table_data["name"]
+        self.key = table_data["key"]
+        self.table_path = table_data["table_path"]
+        self.num_columns = table_data["num_columns"]
+        self.num_records = table_data["num_records"]
+        self.num_base_records = table_data["num_base_records"]
+        self.num_tail_records = table_data["num_tail_records"]
+        self.column_names = table_data["column_names"]
+        self.num_page_ranges = table_data["num_page_ranges"]
+        self.page_range_data = table_data["page_range_data"]
+        self.index_on_primary_key = table_data["index_on_primary_key"]
+
+
     def close_table_page_directory(self):
         """
         Function that writes the Table's page_directory to disk
         """
         self.save_table_data()
-        page_directory_as_json = json.dumps(self.page_directory)
         # TODO make sure this opens and writes, else should return false
-        page_directory_file = open(f"{self.table_path}/page_directory.json", "w")
-        page_directory_file.write(page_directory_as_json)
+        page_directory_file = open(f"{self.table_path}/page_directory.pkl", "wb")
+        pickle.dump(self.page_directory, page_directory_file)
         page_directory_file.close()
 
         return True
@@ -295,11 +311,10 @@ class Table:
 
         relative_rid = self.page_ranges[page_range_index].num_tail_records
         tail_page_index = math.floor(relative_rid / ENTRIES_PER_PAGE) 
-        physical_page_index = relative_rid % ENTRIES_PER_PAGE  
-
+        physical_page_index = relative_rid % ENTRIES_PER_PAGE
         # Check if current PageRange needs another TailPage allocated
         if tail_page_index > self.page_range_data[page_range_index]["tail_page_count"] - 1:
-            self._allocate_new_tail_page(self.num_page_ranges, self.page_ranges[page_range_index].num_tail_pages)
+            self._allocate_new_tail_page(self.num_page_ranges, self.page_range_data[page_range_index]["tail_page_count"])
         
         self.page_range_data[page_range_index]["num_tail_records"] += 1
         self.num_tail_records += 1
@@ -369,7 +384,6 @@ class Table:
             self.bufferpool.load_page(self.name, self.num_columns, page_range_index=pr, base_page_index=bp,
                                       is_base_record=is_base_record)
 
-        print(self.bufferpool.frame_directory)
         frame_index = self.bufferpool.frame_directory[frame_info]
 
         # Write values to page
@@ -513,7 +527,7 @@ class Table:
         # Done working with BasePage Frame
         print(f'schema = {schema_encode}')
         if not schema_encode:
-            print('NOT SCHEMA')
+            # print('NOT SCHEMA')
             return Record(key=key, rid=rid, schema_encoding=schema_encode, column_values=user_cols)
 
         # record has been updated before
