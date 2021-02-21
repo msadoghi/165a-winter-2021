@@ -20,14 +20,15 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
-    def delete(self, key):
-        pass
 
+    def delete(self, primary_key):
+        pass
     """
     # Insert a record with specified columns
     # Return True upon succesful insertion
     # Returns False if insert fails for whatever reason
     """
+
     def insert(self, *columns):
         schema_encoding = '0' * self.table.num_columns
         pass
@@ -40,15 +41,16 @@ class Query:
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
-    def select(self, key, column, query_columns):
-        pass
 
+    def select(self, index_key, column, query_columns):
+        pass
     """
     # Update a record with specified key and columns
     # Returns True if update is succesful
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
-    def update(self, key, *columns):
+
+    def update(self, primary_key, *columns):
         pass
 
     """
@@ -59,6 +61,7 @@ class Query:
     # Returns the summation of the given range upon success
     # Returns False if no record exists in the given range
     """
+
     def sum(self, start_range, end_range, aggregate_column_index):
         pass
 
@@ -70,6 +73,7 @@ class Query:
     # Returns True is increment is successful
     # Returns False if no record matches key or if target record is locked by 2PL.
     """
+
     def increment(self, key, column):
         r = self.select(key, self.table.key, [1] * self.table.num_columns)[0]
         if r is not False:
@@ -78,4 +82,3 @@ class Query:
             u = self.update(key, *updated_columns)
             return u
         return False
-
