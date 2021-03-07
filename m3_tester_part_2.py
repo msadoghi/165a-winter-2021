@@ -80,7 +80,7 @@ score = len(keys)
 for key in keys:
     correct = records[key]
     query = Query(grades_table)
-    #TODO: modify this line based on what your SELECT returns
+    
     result = query.select(key, 0, [1, 1, 1, 1, 1])[0].columns
     if correct != result:
         print('select error on primary key', key, ':', result, ', correct:', correct)
