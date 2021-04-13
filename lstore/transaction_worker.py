@@ -1,5 +1,5 @@
-from template.table import Table, Record
-from template.index import Index
+from lstore.table import Table, Record
+from lstore.index import Index
 
 class TransactionWorker:
 
@@ -19,9 +19,21 @@ class TransactionWorker:
         self.transactions.append(t)
 
     """
-    Runs a transaction
+    Runs all transaction as a thread
     """
     def run(self):
+        pass
+        # here you need to create a thread and call __run
+    
+
+    """
+    Waits for the worker to finish
+    """
+    def join(self):
+        pass
+
+
+    def __run(self):
         for transaction in self.transactions:
             # each transaction returns True if committed or False if aborted
             self.stats.append(transaction.run())

@@ -1,5 +1,4 @@
-from template.page import *
-from template.index import Index
+from lstore.index import Index
 from time import time
 
 INDIRECTION_COLUMN = 0
@@ -31,5 +30,6 @@ class Table:
         pass
 
     def __merge(self):
+        print("merge is happening")
         pass
  

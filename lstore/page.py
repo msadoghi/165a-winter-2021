@@ -1,5 +1,3 @@
-from template.config import *
-
 
 class Page:
 

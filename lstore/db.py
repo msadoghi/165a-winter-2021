@@ -1,4 +1,4 @@
-from template.table import Table
+from lstore.table import Table
 
 class Database():
 
@@ -19,8 +19,8 @@ class Database():
     :param num_columns: int     #Number of Columns: all columns are integer
     :param key: int             #Index of table key in columns
     """
-    def create_table(self, name, num_columns, key):
-        table = Table(name, num_columns, key)
+    def create_table(self, name, num_columns, key_index):
+        table = Table(name, num_columns, key_index)
         return table
 
     """

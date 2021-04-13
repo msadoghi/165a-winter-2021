@@ -1,5 +1,5 @@
-from template.db import Database
-from template.query import Query
+from lstore.db import Database
+from lstore.query import Query
 from time import process_time
 from random import choice, randrange
 
@@ -19,7 +19,7 @@ print("Inserting 10k records took:  \t\t\t", insert_time_1 - insert_time_0)
 
 # Measuring update Performance
 update_cols = [
-    [randrange(0, 100), None, None, None, None],
+    [None, None, None, None, None],
     [None, randrange(0, 100), None, None, None],
     [None, None, randrange(0, 100), None, None],
     [None, None, None, randrange(0, 100), None],

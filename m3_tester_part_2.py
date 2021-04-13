@@ -1,80 +1,84 @@
-from template.db import Database
-from template.query import Query
-from template.transaction import Transaction
-from template.transaction_worker import TransactionWorker
-from template.config import init
+from lstore.db import Database
+from lstore.query import Query
+from lstore.transaction import Transaction
+from lstore.transaction_worker import TransactionWorker
 
 from random import choice, randint, sample, seed
 
-init()
 db = Database()
-db.open('./ECS165')
-grades_table = db.create_table('Grades', 5, 0)
+# Getting the existing Grades table
+grades_table = db.get_table('Grades')
+
+# create a query class for the grades table
+query = Query(grades_table)
+
+# dictionary for records to test the database: test directory
+records = {}
+
+number_of_records = 1000
+number_of_transactions = 100
+number_of_operations_per_record = 10
+num_threads = 8
 
 keys = []
 records = {}
 seed(3562901)
-num_threads = 8
 
-try:
-    grades_table.index.create_index(1)
-    grades_table.index.create_index(2)
-    grades_table.index.create_index(3)
-    grades_table.index.create_index(4)
-except Exception as e:
-    print('Index API not implemented properly, tests may fail.')
-
-transaction_workers = []
-insert_transactions = []
-select_transactions = []
-update_transactions = []
-for i in range(num_threads):
-    insert_transactions.append(Transaction())
-    select_transactions.append(Transaction())
-    update_transactions.append(Transaction())
-    transaction_workers.append(TransactionWorker())
-    transaction_workers[i].add_transaction(insert_transactions[i])
-    transaction_workers[i].add_transaction(select_transactions[i])
-    transaction_workers[i].add_transaction(update_transactions[i])
-worker_keys = [ {} for t in transaction_workers ]
-
-for i in range(0, 1000):
+# re-generate records for testing
+for i in range(0, number_of_records):
     key = 92106429 + i
     keys.append(key)
-    i = i % num_threads
+    records[key] = [key, randint(0, 20), randint(0, 20), randint(0, 20), randint(0, 20)]
+
+transaction_workers = []
+transactions = []
+
+for i in range(number_of_transactions):
+    transactions.append(Transaction())
+
+for i in range(num_threads):
+    transaction_workers.append(TransactionWorker())
+
+
+
+for i in range(0, number_of_records):
+    key = 92106429 + i
+    keys.append(key)
     records[key] = [key, randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20), randint(i * 20, (i + 1) * 20)]
     q = Query(grades_table)
-    insert_transactions[i].add_query(q.insert, *records[key])
-    worker_keys[i][key] = True
 
-t = 0
-_records = [records[key] for key in keys]
-for c in range(grades_table.num_columns):
-    _keys = sorted(list(set([record[c] for record in _records])))
-    index = {v: [record for record in _records if record[c] == v] for v in _keys}
-    for key in _keys:
-        found = True
-        for record in index[key]:
-            if record[0] not in worker_keys[t % num_threads]:
-                found = False
-        if found:
-            query = Query(grades_table)
-            select_transactions[t % num_threads].add_query(query.select, key, c, [1, 1, 1, 1, 1])
-        t += 1
 
-for j in range(0, num_threads):
-    for key in worker_keys[j]:
+# x update on every column
+for j in range(number_of_operations_per_record):
+    for key in keys:
         updated_columns = [None, None, None, None, None]
-        for i in range(1, grades_table.num_columns):
+        for i in range(2, grades_table.num_columns):
+            # updated value
             value = randint(0, 20)
             updated_columns[i] = value
+            # copy record to check
+            original = records[key].copy()
+            # update our test directory
             records[key][i] = value
-            query = Query(grades_table)
-            update_transactions[j].add_query(query.update, key, *updated_columns)
-            updated_columns = [None, None, None, None, None]
+            transactions[j % number_of_transactions].add_query(query.select, grades_table, key, 0, [1, 1, 1, 1, 1])
+            transactions[j % number_of_transactions].add_query(query.update, grades_table, key, *updated_columns)
+print("Update finished")
 
-for transaction_worker in transaction_workers:
-    transaction_worker.run()
+
+# add trasactions to transaction workers  
+for i in range(number_of_transactions):
+    transaction_workers[i % num_threads].add_transaction(transactions[i])
+
+
+
+# run transaction workers
+for i in range(num_threads):
+    transaction_workers[i].run()
+
+# wait for workers to finish
+for i in range(num_threads):
+    transaction_workers[i].join()
+
 
 score = len(keys)
 for key in keys:

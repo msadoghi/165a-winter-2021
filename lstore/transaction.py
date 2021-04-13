@@ -15,10 +15,11 @@ class Transaction:
     # Example:
     # q = Query(grades_table)
     # t = Transaction()
-    # t.add_query(q.update, 0, *[None, 1, None, 2, None])
+    # t.add_query(q.update, grades_table, 0, *[None, 1, None, 2, None])
     """
-    def add_query(self, query, *args):
+    def add_query(self, table, query, *args):
         self.queries.append((query, args))
+        # use grades_table for aborting
 
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
